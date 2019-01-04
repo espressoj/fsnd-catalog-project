@@ -1,7 +1,6 @@
 #!/usr/bin/env Python
 # Import classes from SqlAlchemy to create the database
-from sqlalchemy import create_engine, Column, ForeignKey, Integer, String,
-                        DateTime, UniqueConstraint
+from sqlalchemy import create_engine, Column, ForeignKey, Integer, String, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 # Import class for password and token handling
@@ -111,7 +110,7 @@ class ItemCategories(Base):
     # Relate to Items
     items = relationship(Items)
     # Relate to Categories
-    Categories = relationship(Categories)
+    categories = relationship(Categories)
 
 # Create a class for the ItemTags table
 class ItemTags(Base):
@@ -135,7 +134,7 @@ class ItemPhotos(Base):
     # Define the columns in the table and their attributes
     photoId = Column(Integer, primary_key = True)
     itemId = Column(Integer, ForeignKey('items.itemId'))
-    photoUrl = Column(DateTime, nullable = False)
+    photoUrl = Column(String(500), nullable = False)
     # Relationships with other classes
     # Relate to Items
     items = relationship(Items)
