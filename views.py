@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, redirect, url_for, request, json, flash
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, literal
 from sqlalchemy.orm import sessionmaker, join
 from models import Base, User, Items, Categories, ItemCategories, ItemPhotos, ItemTags, Inventory
 
@@ -14,7 +14,7 @@ DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
 
-# "This page will show the home page for non-logged-in users."
+# This page will show the home page for non-logged-in users.
 @app.route('/')
 @app.route('/catalog/')
 def showCatsAndItems():
@@ -23,27 +23,109 @@ def showCatsAndItems():
     # Query the latest 6 items
     """MOST RECENT 5"""
     latestItems = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl).join(ItemPhotos).limit(5).all()
-    """ADD TAG CLOUD"""
+    # Query the top 30 tags
+    tagCloud = session.query(ItemTags).limit(30).all()
     """ADD RANDOM IMAGES"""
-    return render_template('home_notLoggedIn.html', categories=categories, latestItems=latestItems)
+    return render_template('home_notLoggedIn.html', categories=categories, latestItems=latestItems, tagCloud=tagCloud)
 
+# This page will display all items of a selected category for a non-logged-in user.
 @app.route('/catalog/<categoryName>/')
 def showCategoryItems(categoryName):
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the latest 6 items
     categoryItems = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl, ItemCategories.categoryId, Categories.categoryName).join(ItemPhotos).join(ItemCategories).join(Categories).filter_by(categoryName=categoryName.title()).all()
-    print(categoryItems)
+    # print(categoryItems)
+    # Display the number of records found
     if len(categoryItems) == 0:
         countMessage = "No items were found in this category."
     else:
         countMessage = "%s items found." % len(categoryItems)
-    for i in categoryItems:
-        print("ItemID: %s" % i[0])
-        print("ItemUrl: %s" % i[1])
-    """ADD TAG CLOUD"""
+    # FOR DUEBUG - Print the object in the console
+    # for i in categoryItems:
+    #     print("ItemID: %s" % i[0])
+    #     print("ItemUrl: %s" % i[1])
+    # Query the top 30 tags
+    tagCloud = session.query(ItemTags).limit(30).all()
     """ADD RANDOM IMAGES"""
-    return render_template('categoryItems_notLoggedIn.html', categories=categories, categoryItems=categoryItems, countMessage=countMessage)
+    return render_template('categoryItems_notLoggedIn.html', categories=categories, categoryItems=categoryItems, catName=categoryName, tagCloud=tagCloud, countMessage=countMessage)
+
+# This page will display all items of a with the selected tag for a non-logged-in user.
+@app.route('/catalog/tags/<tag>/')
+def showTaggedItems(tag):
+    # Query all of the categories
+    categories = session.query(Categories).order_by("categoryName").all()
+    # Query the items with the supplied tag
+    taggedItems = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl, ItemTags.tag).join(ItemPhotos).join(ItemTags).filter_by(tag=tag).all()
+    # FOR DUEBUG - Print the object in the console
+    # print(taggedItems)
+    # Display a count of the number of records found
+    if len(taggedItems) == 0:
+        countMessage = "No items were found."
+    else:
+        countMessage = "%s items found." % len(taggedItems)
+    # FOR DUEBUG - Print the object in the console
+    # for i in taggedItems:
+    #     print("ItemID: %s" % i[0])
+    #     print("ItemUrl: %s" % i[1])
+    # Query the top 30 tags
+    tagCloud = session.query(ItemTags).limit(30).all()
+    """ADD RANDOM IMAGES"""
+    return render_template('taggedItems_notLoggedIn.html', categories=categories, taggedItems=taggedItems, tagCloud=tagCloud, tagName=tag, countMessage=countMessage)
+
+# This page will show the full item details for a non-logged-in user.
+@app.route('/catalog/items/<int:itemId>')
+def showItemDetails(itemId):
+    # Query all of the categories
+    categories = session.query(Categories).order_by("categoryName").all()
+    # Query the specific item based on itemId
+    #item = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl, Inventory.itemPrice, Inventory.inventoryCount).join(ItemPhotos).join(Inventory).filter_by(itemId=int(itemId)).all()
+    item = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl, Inventory.itemPrice, Inventory.inventoryCount).outerjoin(ItemPhotos).outerjoin(Inventory).filter(Items.itemId==int(itemId)).first()
+    # FOR DUEBUG - Print the object in the console
+    print(item)
+    # Display a count of the number of records found
+    if not item:
+        countMessage = "Item not found."
+        countMessageClass = "badge badge-warning"
+        display = "none"
+    else:
+        countMessage = ""
+        countMessageClass = ""
+        display = "initial"
+    # FOR DUEBUG - Print the object in the console
+    # for i in taggedItems:
+    #     print("ItemID: %s" % i[0])
+    #     print("ItemUrl: %s" % i[1])
+    # Query the top 30 tags
+    tagCloud = session.query(ItemTags).limit(30).all()
+    """ADD RANDOM IMAGES"""
+    return render_template('item_notLoggedIn.html', categories=categories, tagCloud=tagCloud, itemDisplay=display, item=item, countMessageClass=countMessageClass, countMessage=countMessage)
+
+
+# This page will display the search results for a non-logged-in user.
+@app.route('/search', methods=['GET'])
+def search_results():
+    results = []
+    search_string = search.data['search']
+    """GET SEARCH FEATURE WORKING"""
+    if search_string:
+
+        # searchedItems = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhoto.photoUrl, ItemTags.tag).join(ItemPhotos).join(ItemTags).filter(Items.itemName.contains(search_string)).all()
+        # .filter(Items.itemName.like(%search_string%) | Items.itemDescription.like(%search_string%) )
+        #, literal(search_string).contains(ItemTags.tag))).all()
+        results = searchedItems.all()
+    else:
+        qry = db_session.query(Album)
+        results = qry.all()
+
+    if not results:
+        flash('No results found!')
+        return redirect('/')
+    else:
+        # display results
+        table = Results(results)
+        table.border = True
+        return render_template('results.html', table=table)
 
 # "This page will show a form for adding a new restaurant."
 # Create the route and include both the POST and GET methods
