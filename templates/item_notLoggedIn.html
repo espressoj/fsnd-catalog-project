@@ -3,10 +3,14 @@
 <head>
 <!-- Required meta tags -->
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1,
+        shrink-to-fit=no">
 
 <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <link rel="stylesheet"
+        href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css"
+        integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS"
+        crossorigin="anonymous">
     <script src="https://unpkg.com/ionicons@4.5.0/dist/ionicons.js"></script>
     <title>HomeBuilt!</title>
 </head>
@@ -24,22 +28,22 @@
     <div class="container border pt-3 pb-3">
         <div class="row" align="center">
             {% for c in categories %}
-                <div class="col-sm">
-                    <a href="/catalog/{{c.categoryName.lower()}}">{{c.categoryName}}</a>
-                </div>
+            <div class="col-sm">
+                <a href="/catalog/{{c.categoryName.lower()}}">{{c.categoryName}}</a>
+            </div>
             {% endfor %}
         </div>
     </div>
-    <form>
+    <form action="/search">
         <div class="container mt-3">
             <div class="row">
                 <div class="col-4">
-                        <div class="form-group">
-                            <input type="email" class="form-control" id="FormControlSearch1" placeholder="Search">
-                        </div>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search">
+                    </div>
                 </div>
                 <div class="col-1">
-                    <ion-icon name="search" size="large"></ion-icon>
+                    <button class="btn btn-primary btn-lg"><ion-icon name="md-search"></ion-icon></button>
                 </div>
             </div>
         </div>
@@ -62,29 +66,37 @@
     </div>
     <div class="container pt-3 pb-4">
         <div class="row">
-            <div class="col-8">
-                <h4>Last 5 Additions</h4>
-                <div class="container  pt-3 pb-4">
+            <div class="col-9">
+                <span class="{{countMessageClass}}">{{countMessage}}</span>
+                <div class="container  pt-3 pb-4" style="display:{{itemDisplay}}">
                     <div class="row">
-                        {% for i in latestItems %}
-                            <div class="col-2 mt-2 mt-2 bg-light border pt-3 pb-3">
-                                <div class="media">
-                                    <img src="{{i.photoUrl}}" class="mr-3" max-height="75px">
+                        <div class="col-6 mt-2 mt-2 bg-light border pt-3 pb-3">
+                            <div class="media">
+                                <img src="{{item.photoUrl}}" class="mr-3" max-height="75px">
+                            </div>
+                        </div>
+                        <div class="col-6 mt-2 mt-2 bg-light border pt-3 pb-3">
+                            <div class="media-body">
+                                <h3 class="mt-0">{{item.itemName}}</h3>
+                                <div class="m-3">{{item.itemDescription}}</div>
+                                <div class="row">
+                                    <div class="col-sm-8 mt-3">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">{{item.itemName}}</h6>
+                                                <p class="card-text">{{item.inventoryCount}} in stock</p>
+                                                <p class="card-text"><h4>Price: <span class="badge badge-secondary">{{item.itemPrice}}</span></h4></p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-10 mt-2 mt-2 bg-light border pt-3 pb-3">
-                                <div class="media-body">
-                                    <h6 class="mt-0"><a href="/catalog/items/{{i.itemId}}">{{i.itemName}}</a></h6>
-                                    {{i.itemDescription}}
-                                </div>
-                            </div>
-                        {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-1"></div>
-            <div class="col-3 bg-light">
-                <h5>Tag Cloud</h5>
+            <div class="col-3">
+                <h5>&nbsp;</h5>
                 {% for t in tagCloud %}
                     <a href="/catalog/tags/{{t.tag}}"><div class="badge badge-primary p-2 m-2">{{t.tag}}</div></a>
                 {% endfor %}
