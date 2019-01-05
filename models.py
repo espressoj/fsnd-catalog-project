@@ -92,6 +92,7 @@ class Inventory(Base):
     # Define the columns in the table and their attributes
     itemId = Column(Integer, ForeignKey('items.itemId'), primary_key = True)
     inventoryCount = Column(Integer, nullable = False)
+    itemPrice = Column(String(25), nullable = True)
     lastUpdated = Column(DateTime, nullable = False)
     # Relationships with other classes
     # Relate to Items
