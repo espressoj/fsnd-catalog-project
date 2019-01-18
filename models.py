@@ -25,10 +25,22 @@ class User(Base):
     __tablename__ = 'user'
     # Define the columns in the table and their attributes
     id = Column(Integer, primary_key=True)
-    username = Column(String(32), index=True)
+    name = Column(String)
+    username = Column(String, index=True)
     picture = Column(String)
     email = Column(String)
     password_hash = Column(String(64))
+
+    @property
+    def serialize(self):
+        """Return a serialized object for user"""
+        return {
+            'id'           : self.id,
+            'name'         : self.name,
+            'username'     : self.username,
+            'picture'      : self.picture,
+            'email'        : self.email,
+        }
 
     # Hash the password
     def hash_password(self, password):

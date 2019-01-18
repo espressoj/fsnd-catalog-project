@@ -1,65 +1,5 @@
-<!doctype html>
-<html lang="en">
-<head>
-<!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-<!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
-    <script src="https://unpkg.com/ionicons@4.5.0/dist/ionicons.js"></script>
-    <title>HomeBuilt!</title>
-</head>
-<body>
-    <div class="container mt-2 mb-4">
-        <div class="row">
-            <div class="col-sm">
-                <a href="/"><h1>HomeBuilt! Logo</h1></a>
-            </div>
-            <div class="col-1">
-                <button type="button" class="btn btn-primary">Login</button>
-            </div>
-        </div>
-    </div>
-    <div class="container border pt-3 pb-3">
-        <div class="row" align="center">
-            {% for c in categories %}
-                <div class="col-sm">
-                    <a href="/catalog/{{c.categoryName.lower()}}">{{c.categoryName}}</a>
-                </div>
-            {% endfor %}
-        </div>
-    </div>
-    <form>
-        <div class="container mt-3">
-            <div class="row">
-                <div class="col-4">
-                        <div class="form-group">
-                            <input type="email" class="form-control" id="FormControlSearch1" placeholder="Search">
-                        </div>
-                </div>
-                <div class="col-1">
-                    <ion-icon name="search" size="large"></ion-icon>
-                </div>
-            </div>
-        </div>
-    </form>
-    <div class="container mt-4 mb-3">
-        <div class="row" align="center">
-            <div class="col-sm">
-                <img src="https://via.placeholder.com/150">
-            </div>
-            <div class="col-sm">
-                <img src="https://via.placeholder.com/150">
-            </div>
-            <div class="col-sm">
-                <img src="https://via.placeholder.com/150">
-            </div>
-            <div class="col-sm">
-                <img src="https://via.placeholder.com/150">
-            </div>
-        </div>
-    </div>
+{% extends "main.html" %}
+{% block content %}{{access_token}}
     <div class="container pt-3 pb-4">
         <div class="row">
             <div class="col-8">
@@ -69,7 +9,7 @@
                         {% for i in latestItems %}
                             <div class="col-2 mt-2 mt-2 bg-light border pt-3 pb-3">
                                 <div class="media">
-                                    <img src="{{i.photoUrl}}" class="mr-3" max-height="75px">
+                                    <img src="{{i.photoUrl}}" class="mr-3" style="max-height:75px;">
                                 </div>
                             </div>
                             <div class="col-10 mt-2 mt-2 bg-light border pt-3 pb-3">
@@ -91,46 +31,4 @@
             </div>
         </div>
     </div>
-    <div class="container border bg-dark text-light pt-3 pb-3">
-        <div class="row" align="center">
-            <div class="col-4">
-                About
-            </div>
-            <div class="col-4 align-middle">
-                <ion-icon name="logo-pinterest" size="large"></ion-icon>
-                <ion-icon name="logo-instagram" size="large"></ion-icon>
-                <ion-icon name="logo-twitter" size="large"></ion-icon>
-                <ion-icon name="logo-facebook" size="large"></ion-icon>
-            </div>
-            <div class="col-4">
-                Help
-            </div>
-        </div>
-    </div>
-    <div class="container mb-5">
-        <div class="row">
-            <div class="col-8">
-                &copy;2019 Jason Ritchie
-            </div>
-            <div class="col-4" align="right">
-                <div class="container">
-                    <div class="row">
-                        <div class="col-6">
-                            Terms of Use
-                        </div>
-                        <div class="col-6">
-                            Privacy Policy
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "main.html" %}
+{% block content %}{{access_token}}
+    <div class="container pt-3 pb-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="row">
+                    <div class="col-8">
+                        <h4>My Catalog Items</h4>
+                    </div>
+                    <div class="col-4 text-right gly">
+                        <a href="/catalog/addItem">+ Add an item</a>
+                    </div>
+                <div class="container  pt-3 pb-4 table-bordered">
+                    <div class="container  pt-3 pb-4">
+                        <div class="row">
+                            {% for i in myItems %}
+                                <div class="col-2 mt-2 mt-2 bg-light border pt-3 pb-3">
+                                    <div class="media">
+                                        <img src="{{i.photoUrl}}" class="mr-3" max-height="75px">
+                                    </div>
+                                </div>
+                                <div class="col-8 mt-2 mt-2 bg-light border pt-3 pb-3">
+                                    <div class="media-body">
+                                        <h6 class="mt-0"><a href="/catalog/items/{{i.itemId}}">{{i.itemName}}</a></h6>
+                                        {{i.itemDescription}}
+                                    </div>
+                                </div>
+                                <div class="col-2 mt-2 mt-2 bg-light border pt-3 pb-3">
+                                    <div class="media-body">
+                                        <a href="/catalog/items/{{i.itemId}}/update"><button type="button" class="btn btn-outline-secondary btn-sm btn-block mb-1">Update</button></a>
+                                        <a href="/catalog/items/{{i.itemId}}/delete"><button type="button" class="btn btn-outline-secondary btn-sm btn-block">Delete</button></a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-3">
+                <!-- <h5>&nbsp;</h5>
+                {% for t in tagCloud %}
+                    <a href="/catalog/tags/"><div class="badge badge-primary p-2 m-2"></div></a>
+                {% endfor %} -->
+            </div>
+        </div>
+    </div>
+{% endblock %}

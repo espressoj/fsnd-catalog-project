@@ -1,23 +1,219 @@
-from flask import Flask, render_template, jsonify, redirect, url_for, request, json, flash
-
+from models import Base, User
+from flask import Flask, render_template, jsonify, redirect, url_for, request, json, flash, make_response, abort
+from flask import session as login_session
 from sqlalchemy import create_engine, literal
-from sqlalchemy.orm import sessionmaker, join
+from sqlalchemy.orm import sessionmaker, relationship, join
 from models import Base, User, Items, Categories, ItemCategories, ItemPhotos, ItemTags, Inventory
 
+from flask_httpauth import HTTPBasicAuth
+import json
+import datetime
+
+# Oauth needs
+from oauth2client.client import flow_from_clientsecrets
+from oauth2client.client import FlowExchangeError
+import httplib2
+import requests
+import os
+
+auth = HTTPBasicAuth()
 
 app = Flask(__name__)
 
+CLIENT_ID = json.loads(
+    open('client_secrets.json', 'r').read())['web']['client_id']
+APPLICATION_NAME = "HOMEBUILT! CATALOG"
+
 engine = create_engine('sqlite:///catalog.db', connect_args={'check_same_thread': False})
 Base.metadata.bind = engine
-
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
+currentDateTime = datetime.datetime.now()
+
+@auth.verify_password
+def verify_password(username_or_token, password):
+    #Try to see if it's a token first
+    print("Verify_Password")
+    user_id = User.verify_auth_token(username_or_token)
+    print(user_id)
+    if user_id:
+        user = session.query(User).filter_by(id = user_id).one()
+    else:
+        user = session.query(User).filter_by(username = username_or_token).first()
+        if not user or not user.verify_password(password):
+            return False
+    g.user = user
+    return True
+
+@app.route('/clientOAuth')
+def start():
+    print("clientOAuth")
+    return render_template('clientOAuth.html')
+
+@app.route('/oauth/<provider>', methods = ['POST'])
+def login(provider):
+    print("oauth/<provider>")
+    print(request)
+    #STEP 1 - Parse the auth code
+    access_token = request.json['access_token']
+    # print("Step 1 - Complete, received auth code %s" % auth_code)
+    if provider == 'google':
+        # Check that the access token is valid.
+        url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s' % access_token)
+        h = httplib2.Http()
+        result = json.loads(h.request(url, 'GET')[1])
+        print(url)
+        print(result)
+        print(request)
+        # If there was an error in the access token info, abort.
+        if result.get('error') is not None:
+            response = make_response(json.dumps(result.get('error')), 500)
+            print(result.get('error'))
+            response.headers['Content-Type'] = 'application/json'
+
+         # Verify that the access token is used for the intended user.
+        google_id = request.json['ID']
+        if result['user_id'] != google_id:
+            response = make_response(json.dumps("Token's user ID doesn't match given user ID. %s != %s" % result['user_id'], google_id), 401)
+            response.headers['Content-Type'] = 'application/json'
+            return response
+
+         # Verify that the access token is valid for this app.
+        if result['issued_to'] != CLIENT_ID:
+            print(result['issued_to'])
+            print(CLIENT_ID)
+            response = make_response(json.dumps("Token's client ID does not match app's."), 401)
+            response.headers['Content-Type'] = 'application/json'
+            return response
+
+        stored_credentials = login_session.get('credentials')
+        stored_gplus_id = login_session.get('gplus_id')
+        if stored_credentials is not None and gplus_id == stored_gplus_id:
+            response = make_response(json.dumps('Current user is already connected.'), 200)
+            response.headers['Content-Type'] = 'application/json'
+            return response
+        print("Step 2 Complete! Access Token : %s " % access_token)
+
+        #Get user info
+        h = httplib2.Http()
+        userinfo_url =  "https://www.googleapis.com/oauth2/v1/userinfo"
+        params = {'access_token': access_token, 'alt':'json'}
+        answer = requests.get(userinfo_url, params=params)
+        #
+        data = answer.json()
+
+        name = data['name']
+        picture = data['picture']
+        email = data['email']
+
+        #see if user exists, if it doesn't make a new one
+        userInfo = session.query(User).filter_by(email=email).one()
+        if not userInfo:
+            user = User(username = email, picture = picture, email = email, name = name)
+            session.add(user)
+            session.commit()
+            userInfo = session.query(User).filter_by(email=email).first()
+
+        login_session['access_token'] = access_token
+        login_session['logged_in'] = True
+        login_session['userId'] = userInfo.id
+        login_session['email'] = email
+        login_session['name'] = name
+        print(login_session)
+
+        #STEP 4 - Make token
+        token = userInfo.generate_auth_token(600)
+
+        #STEP 5 - Send back token to the client
+        return jsonify({'token': token.decode('ascii')})
+
+        #return jsonify({'token': token.decode('ascii'), 'duration': 600})
+    else:
+        return 'Unrecoginized Provider'
+
+@app.route('/token')
+@auth.login_required
+def get_auth_token():
+    token = g.user.generate_auth_token()
+    return jsonify({'token': token.decode('ascii')})
+
+
+@app.route('/gdisconnect')
+def gdisconnect():
+    access_token = login_session.get('access_token')
+    if access_token is None:
+        print 'Access Token is None'
+        response = make_response(json.dumps('Current user not connected.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    print 'In gdisconnect access token is %s', access_token
+    print 'User name is: '
+    print login_session['email']
+    login_session['logged_in'] = False
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
+    h = httplib2.Http()
+    result = h.request(url, 'GET')[0]
+    print 'result is '
+    print result
+    if result['status'] == '200':
+        del login_session['access_token']
+        del login_session['logged_in']
+        del login_session['userId']
+        del login_session['email']
+        del login_session['name']
+        output = '<script src="https://apis.google.com/js/platform.js" async defer></script>'
+        # output = '<meta name="google-signin-client_id" content="817393774175-s57q2n3qgi018gaapofcpos6blougcif.apps.googleusercontent.com">'
+        output += '<script>'
+        output += 'window.onLoadCallback = function(){'
+        output += 'gapi.auth2.init({'
+        output += "client_id: '817393774175-s57q2n3qgi018gaapofcpos6blougcif.apps.googleusercontent.com'"
+        output += '});'
+        output += '}'
+        # output += 'var auth2 = gapi.auth2.getAuthInstance();'
+        # output += 'auth2.signOut().then(function () {'
+        # output += "console.log('User signed out.');"
+        output += '</script><script>'
+        output += "window.location.href = '/';"
+        # output += '});'
+        output += '</script>'
+        print "Logged Out!"
+        return output
+        # response = make_response(json.dumps('Successfully disconnected.'), 200)
+        # response.headers['Content-Type'] = 'application/json'
+        # return response
+    else:
+        response = make_response(json.dumps('Failed to revoke token for given user.', 400))
+        response.headers['Content-Type'] = 'application/json'
+    return response
+
+# @app.route('/users', methods = ['POST'])
+# def new_user():
+#     username = request.json.get('username')
+#     password = request.json.get('password')
+#     if username is None or password is None:
+#         print("missing arguments")
+#         abort(400)
+#
+#     if session.query(User).filter_by(username = username).first() is not None:
+#         print "existing user"
+#         user = session.query(User).filter_by(username=username).first()
+#         return jsonify({'message':'user already exists'}), 200#, {'Location': url_for('get_user', id = user.id, _external = True)}
+#
+#     user = User(username = username)
+#     user.hash_password(password)
+#     session.add(user)
+#     session.commit()
+#     return jsonify({ 'username': user.username }), 201#, {'Location': url_for('get_user', id = user.id, _external = True)}
 
 # This page will show the home page for non-logged-in users.
 @app.route('/')
 @app.route('/catalog/')
-def showCatsAndItems():
+def home():
+    if not login_session.get('access_token'):
+        logged_in = False
+    else:
+        logged_in = True
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the latest 6 items
@@ -26,7 +222,7 @@ def showCatsAndItems():
     # Query the top 30 tags
     tagCloud = session.query(ItemTags).limit(30).all()
     """ADD RANDOM IMAGES"""
-    return render_template('home_notLoggedIn.html', categories=categories, latestItems=latestItems, tagCloud=tagCloud)
+    return render_template('home_notLoggedIn.html', categories=categories, latestItems=latestItems, tagCloud=tagCloud, logged_in=logged_in)
 
 # This page will display all items of a selected category for a non-logged-in user.
 @app.route('/catalog/<categoryName>/')
@@ -127,26 +323,82 @@ def search_results():
         table.border = True
         return render_template('results.html', table=table)
 
-# "This page will show a form for adding a new restaurant."
+#return "This page will show the entire catalog for the logged in owner."
+# Create the route and include only the GET method (default)
+@app.route('/myCatalog')
+@auth.login_required
+# Create the function for displaying a restaurant's menu
+def showMyItems():
+    ownerId = login_session["userId"]
+    # Query all of the categories
+    categories = session.query(Categories).order_by("categoryName").all()
+    # Query the database for the specific restaurant information
+    myItems = session.query(Items).filter_by(owner=ownerId).order_by("itemName", "added desc").all()
+    # Render the menu page sending the restaurant and menu information
+    return render_template('myCatalogItems.html', ownerid=ownerId,
+    myItems=myItems, categories=categories, email=login_session['email'])
+
+
+
+
+
+
+
+
+
+
+
+# "This page will show a form for adding a new item to a personal catalog."
 # Create the route and include both the POST and GET methods
 @app.route('/catalog/addItem', methods=['GET','POST'])
-def newRestaurant():
+def addCatalogItem():
+    # Query all of the categories
+    categories = session.query(Categories).order_by("categoryName").all()
     # POST methods actions
     if request.method == 'POST':
         # Set the name of the new restaurant into the dictionary
-        new_restaurant = Restaurant(name=request.form['restaurant_name'])
+        new_item = Items(itemName=request.form['item_name'],
+                        itemDescription=request.form['item_description'],
+                        owner=login_session['userId'],
+                        added=currentDateTime,
+                        modified=currentDateTime,
+                        status='A')
         # Add it to the session
-        session.add(new_restaurant)
+        session.add(new_item)
         # Commit the addition to the database
         session.commit()
         # Send the Flash Message - Restaurant added.
         flash("Your new item has been added!", "success")
+        addedItem = session.query(Items).order_by(Items.itemId.desc()).first()
+        new_item_category = ItemCategories(categoryId=request.form['item_category'],
+                                            itemId=addedItem.itemId)
+        new_item_inventory = Inventory(itemId=addedItem.itemId,
+                                        inventoryCount=request.form['item_inventory'],
+                                        itemPrice=request.form['item_price'],
+                                        lastUpdated=currentDateTime)
+        session.add(new_item_category)
+        session.add(new_item_inventory)
+        session.commit()
+        # Item Tags - Outside of scope of this project - Do later
+        # Item Photo - Outside of scope of this project - Do later
         # Redirect the user back to the main Restaurants page
-        return redirect(url_for('showRestaurants'))
+        return redirect(url_for('myCatalogItems'))
     # GET method actions
     else:
         # Display the Add New Restaurant form page
-        return render_template('newRestaurant.html')
+        return render_template('addItem_LoggedIn.html', categories=categories, email=login_session['email'])
+
+
+
+
+
+
+
+
+
+
+
+
 
 # "This page will show a form to edit a restaurant."
 # Create the route and include both the POST and GET methods
