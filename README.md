@@ -1,5 +1,5 @@
 # Catalog Web Site (Python)
-This python application displays a database-drive website catalog using SQLite, Flask, and SQLAlchemy.  The project is a part of the Udacity.com Full Stack Web Developer Nanodegree program. The site integrates CRUD functionality, Google Sign-in for authentication, a database Users table where the Google sign-in process inserts new users, through which the logged in users receive authorization, and API endpoints for all pages listing catalog information from the database.
+This python application displays a database-driven website catalog using SQLite, Flask, and SQLAlchemy.  The project is a part of the Udacity.com Full Stack Web Developer Nanodegree program. The site integrates CRUD functionality, Google Sign-in for authentication, a database Users table where the Google sign-in process inserts new users, through which the logged in users receive authorization, and API endpoints for all pages listing catalog information from the database.
 
 ## Requirements
 This is a python program and thus, you will need a python interpreter.  For more information, head on over to [https://www.python.org/about/](https://www.python.org/about/). The **Catalog Web Site** program has been tested in the following Python versions:
@@ -38,7 +38,9 @@ $  ```python views.py``` or $  ```python3 views.py``` _(depending on the version
 2. Open a web browser and go to http://localhost:5000.
 3. If you would like to log in, click the log in button and use a Google account with the sign-in.
 4. When logged in, add, edit, or delete any items of your own. _(You cannot modify any items except those you own.)_
-5. The application also generates a log file in the same folder called "PythonLogs_Catalog.txt."
+
+## Log File
+This application also generates a log file in the same folder as views.py called "PythonLogs_Catalog.txt."
 
 
 ## Database Views
