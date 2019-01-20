@@ -28,7 +28,7 @@
                                 <div class="col-2 mt-2 mt-2 bg-light border pt-3 pb-3">
                                     <div class="media-body">
                                         <a href="/catalog/items/{{i.itemId}}/update"><button type="button" class="btn btn-outline-secondary btn-sm btn-block mb-1">Update</button></a>
-                                        <a href="/catalog/items/{{i.itemId}}/delete"><button type="button" class="btn btn-outline-secondary btn-sm btn-block">Delete</button></a>
+                                        <form action="/catalog/items/{{i.itemId}}/delete/" method="POST"><button type="submit" class="btn btn-outline-secondary btn-sm btn-block">Delete</button></form>
                                     </div>
                                 </div>
                             {% endfor %}
