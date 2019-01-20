@@ -2,7 +2,7 @@
 This python application displays a database-drive website catalog using SQLite, Flask, and SQLAlchemy.  The project is a part of the Udacity.com Full Stack Web Developer Nanodegree program. The site integrates CRUD functionality, Google Sign-in for authentication, a database Users table where the Google sign-in process inserts new users, through which the logged in users receive authorization, and API endpoints for all pages listing catalog information from the database.
 
 ## Requirements
-This is a python program and thus, you will need a python interpreter.  For more information, head on over to [https://www.python.org/about/](https://www.python.org/about/). The **News Log Analysis** program has been tested in the following Python versions:
+This is a python program and thus, you will need a python interpreter.  For more information, head on over to [https://www.python.org/about/](https://www.python.org/about/). The **Catalog Web Site** program has been tested in the following Python versions:
 * 2.7.12
 * 3.5.2
 
