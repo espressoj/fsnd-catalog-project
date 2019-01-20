@@ -1,212 +1,212 @@
-from models import Base, User
-from flask import Flask, render_template, jsonify, redirect, url_for, request, json, flash, make_response, abort
-from flask import session as login_session
-from sqlalchemy import create_engine, literal
-from sqlalchemy.orm import sessionmaker, relationship, join
-from models import Base, User, Items, Categories, ItemCategories, ItemPhotos, ItemTags, Inventory
-
-from flask_httpauth import HTTPBasicAuth
+#!/usr/bin/env Python
 import json
+import random
+import string
+from flask import Flask, render_template, request, redirect, jsonify, url_for, flash, make_response
+from flask import session as login_session
+from sqlalchemy import create_engine, asc, text
+from sqlalchemy.orm import sessionmaker, joinedload, relationship
+import requests
+from models import Base, User, Items, Categories, Inventory, ItemCategories, ItemTags, ItemPhotos
 import datetime
+#from marshmallow import Schema, fields
 
-# Oauth needs
+# IMPORTS FOR THIS STEP
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
 import httplib2
-import requests
-import os
+import logging
 
-auth = HTTPBasicAuth()
+# DEBUGGING - Turn on logging to text file.
+""" REMOVE LOG FILE FROM GIT ADD ."""
+logging.basicConfig(level=logging.DEBUG, filename="PythonLogs_Catalog.txt")
+#logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
 
 app = Flask(__name__)
+# DEBUGGING - Echo the SQL
+# app.config['SQLALCHEMY_ECHO'] = True
+CLIENT_ID = json.loads(open('client_secrets.json', 'r').read())['web']['client_id']
+APPLICATION_NAME = "HomeBuilt! Catalog Application"
 
-CLIENT_ID = json.loads(
-    open('client_secrets.json', 'r').read())['web']['client_id']
-APPLICATION_NAME = "HOMEBUILT! CATALOG"
 
+# Connect to Database and create database session
 engine = create_engine('sqlite:///catalog.db', connect_args={'check_same_thread': False})
 Base.metadata.bind = engine
+
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
-
+# Set a current data parameter for future use in database records updates
 currentDateTime = datetime.datetime.now()
+# print(currentDateTime)
 
-@auth.verify_password
-def verify_password(username_or_token, password):
-    #Try to see if it's a token first
-    print("Verify_Password")
-    user_id = User.verify_auth_token(username_or_token)
-    print(user_id)
-    if user_id:
-        user = session.query(User).filter_by(id = user_id).one()
-    else:
-        user = session.query(User).filter_by(username = username_or_token).first()
-        if not user or not user.verify_password(password):
-            return False
-    g.user = user
-    return True
+# Create anti-forgery state token
+@app.route('/login')
+def showLogin():
+    state = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in xrange(32))
+    login_session['state'] = state
+    # return "The current session state is %s" % login_session['state']
+    return render_template('login.html', STATE=state)
 
-@app.route('/clientOAuth')
-def start():
-    print("clientOAuth")
-    return render_template('clientOAuth.html')
 
-@app.route('/oauth/<provider>', methods = ['POST'])
-def login(provider):
-    print("oauth/<provider>")
-    print(request)
-    #STEP 1 - Parse the auth code
-    access_token = request.json['access_token']
-    # print("Step 1 - Complete, received auth code %s" % auth_code)
-    if provider == 'google':
-        # Check that the access token is valid.
-        url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s' % access_token)
-        h = httplib2.Http()
-        result = json.loads(h.request(url, 'GET')[1])
-        print(url)
-        print(result)
-        print(request)
-        # If there was an error in the access token info, abort.
-        if result.get('error') is not None:
-            response = make_response(json.dumps(result.get('error')), 500)
-            print(result.get('error'))
-            response.headers['Content-Type'] = 'application/json'
+@app.route('/gconnect', methods=['POST'])
+def gconnect():
+    # Validate state token
+    if request.args.get('state') != login_session['state']:
+        response = make_response(json.dumps('Invalid state parameter.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return render_template('error.html', error=response)
+    # Obtain authorization code
+    code = request.data
 
-         # Verify that the access token is used for the intended user.
-        google_id = request.json['ID']
-        if result['user_id'] != google_id:
-            response = make_response(json.dumps("Token's user ID doesn't match given user ID. %s != %s" % result['user_id'], google_id), 401)
-            response.headers['Content-Type'] = 'application/json'
-            return response
+    try:
+        # Upgrade the authorization code into a credentials object
+        oauth_flow = flow_from_clientsecrets('client_secrets.json', scope='')
+        oauth_flow.redirect_uri = 'postmessage'
+        credentials = oauth_flow.step2_exchange(code)
+    except FlowExchangeError:
+        response = make_response(
+            json.dumps('Failed to upgrade the authorization code.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
-         # Verify that the access token is valid for this app.
-        if result['issued_to'] != CLIENT_ID:
-            print(result['issued_to'])
-            print(CLIENT_ID)
-            response = make_response(json.dumps("Token's client ID does not match app's."), 401)
-            response.headers['Content-Type'] = 'application/json'
-            return response
+    # Check that the access token is valid.
+    access_token = credentials.access_token
+    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
+           % access_token)
+    h = httplib2.Http()
+    result = json.loads(h.request(url, 'GET')[1])
+    # If there was an error in the access token info, abort.
+    if result.get('error') is not None:
+        response = make_response(json.dumps(result.get('error')), 500)
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
-        stored_credentials = login_session.get('credentials')
-        stored_gplus_id = login_session.get('gplus_id')
-        if stored_credentials is not None and gplus_id == stored_gplus_id:
-            response = make_response(json.dumps('Current user is already connected.'), 200)
-            response.headers['Content-Type'] = 'application/json'
-            return response
-        print("Step 2 Complete! Access Token : %s " % access_token)
+    # Verify that the access token is used for the intended user.
+    gplus_id = credentials.id_token['sub']
+    if result['user_id'] != gplus_id:
+        response = make_response(
+            json.dumps("Token's user ID doesn't match given user ID."), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
-        #Get user info
-        h = httplib2.Http()
-        userinfo_url =  "https://www.googleapis.com/oauth2/v1/userinfo"
-        params = {'access_token': access_token, 'alt':'json'}
-        answer = requests.get(userinfo_url, params=params)
-        #
-        data = answer.json()
+    # Verify that the access token is valid for this app.
+    if result['issued_to'] != CLIENT_ID:
+        response = make_response(
+            json.dumps("Token's client ID does not match app's."), 401)
+        print("Token's client ID does not match app's.")
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
-        name = data['name']
-        picture = data['picture']
-        email = data['email']
+    stored_access_token = login_session.get('access_token')
+    stored_gplus_id = login_session.get('gplus_id')
+    if stored_access_token is not None and gplus_id == stored_gplus_id:
+        response = make_response(json.dumps('Current user is already connected.'),
+                                 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
-        #see if user exists, if it doesn't make a new one
-        userInfo = session.query(User).filter_by(email=email).one()
-        if not userInfo:
-            user = User(username = email, picture = picture, email = email, name = name)
-            session.add(user)
-            session.commit()
-            userInfo = session.query(User).filter_by(email=email).first()
+    # Store the access token in the session for later use.
+    login_session['access_token'] = credentials.access_token
+    login_session['gplus_id'] = gplus_id
 
-        login_session['access_token'] = access_token
-        login_session['logged_in'] = True
-        login_session['userId'] = userInfo.id
-        login_session['email'] = email
-        login_session['name'] = name
-        print(login_session)
+    # Get user info
+    userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+    params = {'access_token': credentials.access_token, 'alt': 'json'}
+    answer = requests.get(userinfo_url, params=params)
 
-        #STEP 4 - Make token
-        token = userInfo.generate_auth_token(600)
+    data = answer.json()
+    # Set some of the session information
+    login_session['username'] = data["name"]
+    login_session['picture'] = data["picture"]
+    login_session['email'] = data["email"]
 
-        #STEP 5 - Send back token to the client
-        return jsonify({'token': token.decode('ascii')})
+    userid = getUserID(data["email"])
+    if userid is None:
+        userid = createUser(login_session)
 
-        #return jsonify({'token': token.decode('ascii'), 'duration': 600})
-    else:
-        return 'Unrecoginized Provider'
-
-@app.route('/token')
-@auth.login_required
-def get_auth_token():
-    token = g.user.generate_auth_token()
-    return jsonify({'token': token.decode('ascii')})
-
+    output = ''
+    output += '<h5>Welcome, '
+    output += login_session['username']
+    output += '!</h5>'
+    output += '<img src="'
+    output += login_session['picture']
+    output += ' " style = "width: 255px; height: 255px;border-radius: 60px;'
+    output += '-webkit-border-radius: 60px;-moz-border-radius: 60px;"> '
+    """Flash message that the user was successfully logged out. Add BOOTSTRAP css classes as the
+    message category."""
+    flash("Logged in as %s" % login_session['username'], 'badge badge-secondary')
+    print("done!")
+    return output
 
 @app.route('/gdisconnect')
 def gdisconnect():
     access_token = login_session.get('access_token')
     if access_token is None:
-        print 'Access Token is None'
-        response = make_response(json.dumps('Current user not connected.'), 401)
+        print('Access Token is None')
+        errorMessage = "Current user not connected."
+        response = make_response(json.dumps(errorMessage), 401)
         response.headers['Content-Type'] = 'application/json'
-        return response
-    print 'In gdisconnect access token is %s', access_token
-    print 'User name is: '
-    print login_session['email']
-    login_session['logged_in'] = False
+        return render_template('error.html', error=errorMessage)
+    # DEBUGGING
+    # print('In gdisconnect access token is %s' % access_token)
+    # print('User name is: %s' % login_session['username'])
+    # print('Access Token is: %s' % login_session['access_token'])
     url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
+    # print('URL is: %s' % url)
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
-    print 'result is '
-    print result
+    # print('result is %s' % result)
+    # Delete the login_session variables
+    del login_session['access_token']
+    del login_session['gplus_id']
+    del login_session['username']
+    del login_session['email']
+    del login_session['picture']
+    del login_session['user_id']
     if result['status'] == '200':
-        del login_session['access_token']
-        del login_session['logged_in']
-        del login_session['userId']
-        del login_session['email']
-        del login_session['name']
-        output = '<script src="https://apis.google.com/js/platform.js" async defer></script>'
-        # output = '<meta name="google-signin-client_id" content="817393774175-s57q2n3qgi018gaapofcpos6blougcif.apps.googleusercontent.com">'
-        output += '<script>'
-        output += 'window.onLoadCallback = function(){'
-        output += 'gapi.auth2.init({'
-        output += "client_id: '817393774175-s57q2n3qgi018gaapofcpos6blougcif.apps.googleusercontent.com'"
-        output += '});'
-        output += '}'
-        # output += 'var auth2 = gapi.auth2.getAuthInstance();'
-        # output += 'auth2.signOut().then(function () {'
-        # output += "console.log('User signed out.');"
-        output += '</script><script>'
-        output += "window.location.href = '/';"
-        # output += '});'
-        output += '</script>'
-        print "Logged Out!"
-        return output
-        # response = make_response(json.dumps('Successfully disconnected.'), 200)
-        # response.headers['Content-Type'] = 'application/json'
-        # return response
-    else:
-        response = make_response(json.dumps('Failed to revoke token for given user.', 400))
+        response = make_response(json.dumps('Successfully disconnected.'), 200)
         response.headers['Content-Type'] = 'application/json'
-    return response
+        # print (response)
+        """Flash message that the user was successfully logged out. Add BOOTSTRAP css classes as the
+        message category."""
+        flash('You successfully logged out.', 'badge badge-success')
+        return redirect(url_for('home'))
+    else:
+        print('RESULT STATUS')
+        # print(result)
+        errorMessage = "Process failed to revoke token for given user."
+        response = make_response(json.dumps(errorMessage, 400))
+        response.headers['Content-Type'] = 'application/json'
+        return render_template('error.html', error=errorMessage)
 
-# @app.route('/users', methods = ['POST'])
-# def new_user():
-#     username = request.json.get('username')
-#     password = request.json.get('password')
-#     if username is None or password is None:
-#         print("missing arguments")
-#         abort(400)
-#
-#     if session.query(User).filter_by(username = username).first() is not None:
-#         print "existing user"
-#         user = session.query(User).filter_by(username=username).first()
-#         return jsonify({'message':'user already exists'}), 200#, {'Location': url_for('get_user', id = user.id, _external = True)}
-#
-#     user = User(username = username)
-#     user.hash_password(password)
-#     session.add(user)
-#     session.commit()
-#     return jsonify({ 'username': user.username }), 201#, {'Location': url_for('get_user', id = user.id, _external = True)}
+# Method to check if email exists in database
+def getUserID(email):
+    try:
+        user = session.query(User).filter_by(email = email).one()
+        login_session['user_id'] = user.id
+        return user.id
+    except:
+        return None
 
-# This page will show the home page for non-logged-in users.
+# Method to get a user's info
+def getUserInfo(userid):
+    user = session.query(User).filter_by(id = userid).one()
+    return user
+
+# Method to Create a new user
+def createUser(login_session):
+    new_user = User(name = login_session['username'], email =
+        login_session['email'], username = login_session['email'],
+        picture = login_session['picture'])
+    session.add(new_user)
+    session.commit()
+    user = session.query(User).filter_by(email = login_session['email']).one()
+    login_session['user_id'] = user.id
+    return user.id
+
+
+# This page will show the entire catalog for the any user
 @app.route('/')
 @app.route('/catalog/')
 def home():
@@ -214,45 +214,222 @@ def home():
         logged_in = False
     else:
         logged_in = True
+    # print(logged_in)
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
-    # Query the latest 6 items
+    # Query the latest 5 items
     """MOST RECENT 5"""
-    latestItems = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl).join(ItemPhotos).limit(5).all()
+    latestItems = session.query(Items.itemId
+                                , Items.itemName
+                                , Items.itemDescription
+                                , ItemPhotos.photoUrl
+                                ).join(ItemPhotos
+                                ).limit(5
+                                ).all()
     # Query the top 30 tags
     tagCloud = session.query(ItemTags).limit(30).all()
-    """ADD RANDOM IMAGES"""
-    return render_template('home_notLoggedIn.html', categories=categories, latestItems=latestItems, tagCloud=tagCloud, logged_in=logged_in)
+    # set the JSON link for the template page.
+    json_link = "/catalog/JSON"
+    return render_template('home_notLoggedIn.html', categories=categories, latestItems=latestItems
+                            , tagCloud=tagCloud, logged_in=logged_in, json_link=json_link)
+
+# JSON APIs to view full catalog
+@app.route('/catalog/JSON')
+def fullCatalogJSON():
+    items = session.query(Items.itemId
+                        , Items.itemName
+                        , Items.itemDescription
+                        , Inventory.itemPrice
+                        , Inventory.inventoryCount
+                        , Categories.categoryName
+                        , ItemPhotos.photoUrl
+                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
+                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
+                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
+                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
+                        ).all()
+    allItems = []
+    itemDict = {}
+    # Serialize the query data
+    for i in items:
+        itemDict = {
+            "item_id"       : i.itemId,
+            "item_name"     : i.itemName,
+            "item_desc"     : i.itemDescription,
+            "item_price"    : i.itemPrice,
+            "item_category" : i.categoryName,
+            "item_photo"    : i.photoUrl,
+        }
+        allItems.append(itemDict)
+    #print(allItems)
+    return jsonify(catalogItems=allItems)
+
+
+# This page will show the entire catalog for the logged in owner.
+# Create the route and include only the GET method (default)
+@app.route('/myCatalog')
+# Create the function for displaying a restaurant's menu
+def showMyItems():
+    if not login_session.get('access_token'):
+        return redirect('/')
+    else:
+        logged_in = True
+    ownerId = login_session["user_id"]
+    # Query all of the categories
+    categories = session.query(Categories).order_by("categoryName").all()
+    # Query the database for the specific restaurant information
+    myItems = session.query(Items.itemId
+                        , Items.itemName
+                        , Items.itemDescription
+                        , Inventory.itemPrice
+                        , Inventory.inventoryCount
+                        , Categories.categoryName
+                        , ItemPhotos.photoUrl
+                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
+                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
+                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
+                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
+                        ).filter(Items.owner == ownerId
+                        ).all()
+    # print(myItems)
+    # set the JSON link for the template page.
+    json_link = "/myCatalog/JSON"
+    # Render the menu page sending the restaurant and menu information
+    return render_template('myCatalogItems.html', ownerid=ownerId,
+                            myItems=myItems, categories=categories, email=login_session['email'],
+                            logged_in=logged_in, json_link=json_link)
+
+
+# JSON APIs to view myCatalog items - based on user_id in session
+@app.route('/myCatalog/JSON')
+def myCatalogJSON():
+    if not login_session.get('access_token'):
+        return redirect('/')
+    else:
+        logged_in = True
+    ownerId = login_session["user_id"]
+    items = session.query(Items.itemId
+                        , Items.itemName
+                        , Items.itemDescription
+                        , Inventory.itemPrice
+                        , Inventory.inventoryCount
+                        , Categories.categoryName
+                        , ItemPhotos.photoUrl
+                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
+                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
+                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
+                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
+                        ).filter(Items.owner == ownerId
+                        ).all()
+    allItems = []
+    itemDict = {}
+    for i in items:
+        itemDict = {
+            "item_id"       : i.itemId,
+            "item_name"     : i.itemName,
+            "item_desc"     : i.itemDescription,
+            "item_price"    : i.itemPrice,
+            "item_category" : i.categoryName,
+            "item_photo"    : i.photoUrl,
+        }
+        allItems.append(itemDict)
+    # print(allItems)
+    return jsonify(myCatalogItems=allItems)
+
 
 # This page will display all items of a selected category for a non-logged-in user.
 @app.route('/catalog/<categoryName>/')
 def showCategoryItems(categoryName):
+    if not login_session.get('access_token'):
+        logged_in = False
+    else:
+        logged_in = True
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the latest 6 items
-    categoryItems = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl, ItemCategories.categoryId, Categories.categoryName).join(ItemPhotos).join(ItemCategories).join(Categories).filter_by(categoryName=categoryName.title()).all()
-    # print(categoryItems)
+    categoryItems = session.query(Items.itemId
+                                , Items.itemName
+                                , Items.itemDescription
+                                , ItemPhotos.photoUrl
+                                , ItemCategories.categoryId
+                                , Categories.categoryName
+                                ).join(ItemPhotos
+                                ).join(ItemCategories
+                                ).join(Categories
+                                ).filter_by(categoryName=categoryName.title()
+                                ).all()
     # Display the number of records found
     if len(categoryItems) == 0:
         countMessage = "No items were found in this category."
     else:
         countMessage = "%s items found." % len(categoryItems)
     # FOR DUEBUG - Print the object in the console
-    # for i in categoryItems:
-    #     print("ItemID: %s" % i[0])
-    #     print("ItemUrl: %s" % i[1])
     # Query the top 30 tags
     tagCloud = session.query(ItemTags).limit(30).all()
     """ADD RANDOM IMAGES"""
-    return render_template('categoryItems_notLoggedIn.html', categories=categories, categoryItems=categoryItems, catName=categoryName, tagCloud=tagCloud, countMessage=countMessage)
+    json_link = "/catalog/%s/JSON" % categoryName
+    return render_template('categoryItems_notLoggedIn.html', categories=categories
+                            , categoryItems=categoryItems, catName=categoryName, tagCloud=tagCloud
+                            , countMessage=countMessage, logged_in=logged_in, json_link=json_link)
+
+
+# JSON APIs to view myCatalog items - based on user_id in session
+@app.route('/catalog/<categoryName>/JSON')
+def showCategoryItemsJSON(categoryName):
+    if not login_session.get('access_token'):
+        logged_in = False
+    else:
+        logged_in = True
+    # Query the latest 6 items
+    categoryItems = session.query(Items.itemId
+                        , Items.itemName
+                        , Items.itemDescription
+                        , Inventory.itemPrice
+                        , Inventory.inventoryCount
+                        , Categories.categoryName
+                        , ItemPhotos.photoUrl
+                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
+                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
+                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
+                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
+                        ).filter_by(categoryName=categoryName.title()
+                        ).all()
+    allItems = []
+    itemDict = {}
+    for i in categoryItems:
+        itemDict = {
+            "item_id"       : i.itemId,
+            "item_name"     : i.itemName,
+            "item_desc"     : i.itemDescription,
+            "item_price"    : i.itemPrice,
+            "item_inventory": i.inventoryCount,
+            "item_category" : i.categoryName,
+            "item_photo"    : i.photoUrl,
+        }
+        allItems.append(itemDict)
+    # print(allItems)
+    return jsonify(categoryItems=allItems)
+
 
 # This page will display all items of a with the selected tag for a non-logged-in user.
 @app.route('/catalog/tags/<tag>/')
 def showTaggedItems(tag):
+    if not login_session.get('access_token'):
+        logged_in = False
+    else:
+        logged_in = True
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the items with the supplied tag
-    taggedItems = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl, ItemTags.tag).join(ItemPhotos).join(ItemTags).filter_by(tag=tag).all()
+    taggedItems = session.query(Items.itemId
+                                , Items.itemName
+                                , Items.itemDescription
+                                , ItemPhotos.photoUrl
+                                , ItemTags.tag
+                                ).join(ItemPhotos
+                                ).join(ItemTags
+                                ).filter_by(tag=tag
+                                ).all()
     # FOR DUEBUG - Print the object in the console
     # print(taggedItems)
     # Display a count of the number of records found
@@ -260,23 +437,64 @@ def showTaggedItems(tag):
         countMessage = "No items were found."
     else:
         countMessage = "%s items found." % len(taggedItems)
-    # FOR DUEBUG - Print the object in the console
-    # for i in taggedItems:
-    #     print("ItemID: %s" % i[0])
-    #     print("ItemUrl: %s" % i[1])
     # Query the top 30 tags
     tagCloud = session.query(ItemTags).limit(30).all()
-    """ADD RANDOM IMAGES"""
-    return render_template('taggedItems_notLoggedIn.html', categories=categories, taggedItems=taggedItems, tagCloud=tagCloud, tagName=tag, countMessage=countMessage)
+    json_link = "/catalog/tags/%s/JSON" % tag
+    return render_template('taggedItems_notLoggedIn.html', categories=categories
+                            , taggedItems=taggedItems, tagCloud=tagCloud, tagName=tag
+                            , countMessage=countMessage, logged_in=logged_in, json_link=json_link)
+
+
+# JSON APIs to view myCatalog items - based on user_id in session
+@app.route('/catalog/tags/<tag>/JSON')
+def showTaggedItemsJSON(tag):
+    if not login_session.get('access_token'):
+        logged_in = False
+    else:
+        logged_in = True
+    # Query the items with the supplied tag
+    taggedItems = session.query(Items.itemId
+                                , Items.itemName
+                                , Items.itemDescription
+                                , ItemPhotos.photoUrl
+                                , ItemTags.tag
+                                ).join(ItemPhotos
+                                ).join(ItemTags
+                                ).filter_by(tag=tag
+                                ).all()
+    allItems = []
+    itemDict = {}
+    for i in taggedItems:
+        itemDict = {
+            "item_id"       : i.itemId,
+            "item_name"     : i.itemName,
+            "item_desc"     : i.itemDescription,
+            "item_photo"    : i.photoUrl,
+        }
+        allItems.append(itemDict)
+    # print(allItems)
+    return jsonify(categoryItems=allItems)
 
 # This page will show the full item details for a non-logged-in user.
 @app.route('/catalog/items/<int:itemId>')
 def showItemDetails(itemId):
+    if not login_session.get('access_token'):
+        logged_in = False
+    else:
+        logged_in = True
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the specific item based on itemId
-    #item = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl, Inventory.itemPrice, Inventory.inventoryCount).join(ItemPhotos).join(Inventory).filter_by(itemId=int(itemId)).all()
-    item = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhotos.photoUrl, Inventory.itemPrice, Inventory.inventoryCount).outerjoin(ItemPhotos).outerjoin(Inventory).filter(Items.itemId==int(itemId)).first()
+    item = session.query(Items.itemId
+                        , Items.itemName
+                        , Items.itemDescription
+                        , ItemPhotos.photoUrl
+                        , Inventory.itemPrice
+                        , Inventory.inventoryCount
+                        ).outerjoin(ItemPhotos
+                        ).outerjoin(Inventory
+                        ).filter(Items.itemId==int(itemId)
+                        ).first()
     # FOR DUEBUG - Print the object in the console
     print(item)
     # Display a count of the number of records found
@@ -294,64 +512,57 @@ def showItemDetails(itemId):
     #     print("ItemUrl: %s" % i[1])
     # Query the top 30 tags
     tagCloud = session.query(ItemTags).limit(30).all()
-    """ADD RANDOM IMAGES"""
-    return render_template('item_notLoggedIn.html', categories=categories, tagCloud=tagCloud, itemDisplay=display, item=item, countMessageClass=countMessageClass, countMessage=countMessage)
+    json_link = "/catalog/items/%s/JSON" % str(itemId)
+    return render_template('item_notLoggedIn.html', categories=categories, tagCloud=tagCloud
+                            , itemDisplay=display, item=item, countMessageClass=countMessageClass
+                            , countMessage=countMessage, logged_in=logged_in, json_link=json_link)
 
 
-# This page will display the search results for a non-logged-in user.
-@app.route('/search', methods=['GET'])
-def search_results():
-    results = []
-    search_string = search.data['search']
-    """GET SEARCH FEATURE WORKING"""
-    if search_string:
-
-        # searchedItems = session.query(Items.itemId, Items.itemName, Items.itemDescription, ItemPhoto.photoUrl, ItemTags.tag).join(ItemPhotos).join(ItemTags).filter(Items.itemName.contains(search_string)).all()
-        # .filter(Items.itemName.like(%search_string%) | Items.itemDescription.like(%search_string%) )
-        #, literal(search_string).contains(ItemTags.tag))).all()
-        results = searchedItems.all()
+# JSON APIs to view myCatalog items - based on user_id in session
+@app.route('/catalog/items/<int:itemId>/JSON')
+def itemDetailsJSON(itemId):
+    if not login_session.get('access_token'):
+        logged_in = False
     else:
-        qry = db_session.query(Album)
-        results = qry.all()
-
-    if not results:
-        flash('No results found!')
-        return redirect('/')
-    else:
-        # display results
-        table = Results(results)
-        table.border = True
-        return render_template('results.html', table=table)
-
-#return "This page will show the entire catalog for the logged in owner."
-# Create the route and include only the GET method (default)
-@app.route('/myCatalog')
-@auth.login_required
-# Create the function for displaying a restaurant's menu
-def showMyItems():
-    ownerId = login_session["userId"]
-    # Query all of the categories
-    categories = session.query(Categories).order_by("categoryName").all()
-    # Query the database for the specific restaurant information
-    myItems = session.query(Items).filter_by(owner=ownerId).order_by("itemName", "added desc").all()
-    # Render the menu page sending the restaurant and menu information
-    return render_template('myCatalogItems.html', ownerid=ownerId,
-    myItems=myItems, categories=categories, email=login_session['email'])
-
-
-
-
-
-
-
-
-
+        logged_in = True
+    items = session.query(Items.itemId
+                        , Items.itemName
+                        , Items.itemDescription
+                        , Inventory.itemPrice
+                        , Inventory.inventoryCount
+                        , Categories.categoryName
+                        , ItemPhotos.photoUrl
+                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
+                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
+                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
+                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
+                        ).filter(Items.itemId==int(itemId)
+                        ).all()
+    allItems = []
+    itemDict = {}
+    for i in items:
+        itemDict = {
+            "item_id"       : i.itemId,
+            "item_name"     : i.itemName,
+            "item_desc"     : i.itemDescription,
+            "item_price"    : i.itemPrice,
+            "item_category" : i.categoryName,
+            "item_photo"    : i.photoUrl,
+        }
+        allItems.append(itemDict)
+    # print(allItems)
+    return jsonify(ItemDetails=allItems)
 
 
 # "This page will show a form for adding a new item to a personal catalog."
 # Create the route and include both the POST and GET methods
 @app.route('/catalog/addItem', methods=['GET','POST'])
 def addCatalogItem():
+    if not login_session.get('access_token'):
+        return redirect('/')
+    else:
+        logged_in = True
+    ownerId = login_session["user_id"]
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # POST methods actions
@@ -359,7 +570,7 @@ def addCatalogItem():
         # Set the name of the new restaurant into the dictionary
         new_item = Items(itemName=request.form['item_name'],
                         itemDescription=request.form['item_description'],
-                        owner=login_session['userId'],
+                        owner=ownerId,
                         added=currentDateTime,
                         modified=currentDateTime,
                         status='A')
@@ -367,9 +578,10 @@ def addCatalogItem():
         session.add(new_item)
         # Commit the addition to the database
         session.commit()
-        # Send the Flash Message - Restaurant added.
-        flash("Your new item has been added!", "success")
         addedItem = session.query(Items).order_by(Items.itemId.desc()).first()
+        """Flash message that the item was successfully added. Add BOOTSTRAP css classes as the
+        message category."""
+        flash('New item was successfully added! (%s)' % addedItem.itemName, 'badge badge-success')
         new_item_category = ItemCategories(categoryId=request.form['item_category'],
                                             itemId=addedItem.itemId)
         new_item_inventory = Inventory(itemId=addedItem.itemId,
@@ -382,223 +594,117 @@ def addCatalogItem():
         # Item Tags - Outside of scope of this project - Do later
         # Item Photo - Outside of scope of this project - Do later
         # Redirect the user back to the main Restaurants page
-        return redirect(url_for('myCatalogItems'))
+        return redirect(url_for('showMyItems'))
     # GET method actions
     else:
         # Display the Add New Restaurant form page
-        return render_template('addItem_LoggedIn.html', categories=categories, email=login_session['email'])
+        return render_template('addItem_LoggedIn.html', categories=categories
+                                , email=login_session['email'], logged_in=logged_in)
 
-
-
-
-
-
-
-
-
-
-
-
-
-# "This page will show a form to edit a restaurant."
-# Create the route and include both the POST and GET methods
-@app.route('/catalog/<int:itemId>/edit', methods=['GET','POST'])
-# Create the function for editing a restaurant
-def editRestaurant(itemId):
-    # Query the DB for the specific restaurant information
-    update_restaurant = session.query(Restaurant).filter_by(
-        id=restaurant_id).one()
-    # POST method actions
+# Edit a restaurant
+@app.route('/catalog/items/<int:itemId>/update/', methods=['GET', 'POST'])
+def editItem(itemId):
+    # If the logged in user is not the owner of the item record, redirect to home
+    if not login_session.get('access_token'):
+        return redirect('/')
+    else:
+        logged_in = True
+    ownerId = login_session["user_id"]
+    # Query all of the categories for the navigation bar
+    categories = session.query(Categories).order_by("categoryName").all()
+    # Query the item to edit
+    editedItem = session.query(Items.owner
+                                , Items.itemId
+                                , Items.itemName
+                                , Items.itemDescription
+                                , ItemPhotos.photoUrl
+                                , Inventory.itemPrice
+                                , ItemCategories.categoryId
+                                , Inventory.inventoryCount
+                                ).outerjoin(ItemCategories, Items.itemId==ItemCategories.itemId
+                                ).outerjoin(ItemPhotos, Items.itemId==ItemPhotos.itemId
+                                ).outerjoin(Inventory, Items.itemId==Inventory.itemId
+                                ).filter(Items.itemId==int(itemId)
+                                ).filter(Items.owner==int(ownerId)
+                                ).first()
+    if not editedItem or editedItem.owner != ownerId:
+        return redirect(url_for('showMyItems'))
+    # print(editedItem)
     if request.method == 'POST':
-        # Check existance of form field and then set the parameter(s) to update
-        if request.form['restaurant_name']:
-            update_restaurant.name = request.form['restaurant_name']
-            # Add the change to the session
-            session.add(update_restaurant)
-            # Commit the change to the DB
+        # Save edits to the items table
+        if request.form['item_name']:
+            print(request.form['item_name'])
+            itemToEdit = session.query(Items
+                                        ).filter(Items.itemId==int(itemId)
+                                        ).filter(Items.owner==int(login_session['user_id'])
+                                        ).all()
+            for i in itemToEdit:
+                i.itemName = request.form['item_name']
+                i.itemDescription = request.form['item_description']
             session.commit()
-            # Send the Flash Message - Restaurant updated.
-            flash("The restaurant has been updated!", "success")
-        # Redirect the user back to the Restaurant List (main page)
-        return redirect( url_for('showRestaurants') )
-    # GET method actions
-    else:
-        # Render the editRestaurant template which includes the update form.
-        return render_template('editRestaurant.html',
-            restaurant_id=str(restaurant_id), restaurant=update_restaurant.name)
-
-# This page will show/process a form to delete a restaurant.
-# Create the route and include both the POST and GET methods
-@app.route('/restaurants/<int:restaurant_id>/delete', methods=['GET','POST'])
-# Create the function for deleting a restaurant
-def deleteRestaurant(restaurant_id):
-    # POST method actions
-    if request.method == 'POST':
-        """ Use the query parameter *restaurant_id* to get the correct
-        restaurant to delete """
-        delete_restaurant = session.query(Restaurant).filter_by(
-            id = int(restaurant_id)
-        ).one()
-        # Add the change to the session
-        session.delete(delete_restaurant)
-        # Commit the delete to the database
-        session.commit()
-        # Send the Flash Message - Restaurant deleted.
-        flash("Restaurant has been successfully deleted!", "deleteSuccess")
-        # Redirect back to the restaurant list (main page)
-        return redirect(url_for('showRestaurants'))
-    #GET method actions
-    else:
-        # Query the database for the specific restaurant
-        rest = session.query(Restaurant).filter_by(id=restaurant_id).one()
-        # Render the confirmation page before deleting
-        return render_template('deleteRestaurant.html',
-            restaurant_id=restaurant_id, restaurant=rest)
-
-#return "This page will show the entire menu for a restaurant."
-# Create the route and include only the GET method (default)
-@app.route('/catalog/<categoryName>')
-@app.route('/restaurants/<int:restaurant_id>/menu')
-# Create the function for displaying a restaurant's menu
-def showMenu(restaurant_id):
-    # Query the database for the specific restaurant information
-    restaurant = session.query(Restaurant).filter_by(id=restaurant_id).one()
-    # Query the database for the menu items associated with that restaurant
-    items = session.query(MenuItem).filter_by(restaurant_id=
-    restaurant.id).order_by("course", "name")
-    # Render the menu page sending the restaurant and menu information
-    return render_template('menu.html', restaurant_id=restaurant_id,
-    restaurant=restaurant, items=items)
-
-# This page will show a form to add a menu item.
-# Create the route and include both the POST and GET methods
-@app.route('/restaurants/<int:restaurant_id>/menu/new', methods=['GET','POST'])
-# Create the function to add a new menu item
-def newMenuItem(restaurant_id):
-    # POST method actions
-    if request.method == 'POST':
-        # Create a new instance of the MenuItem class
-        new_menu_item = MenuItem()
-        # Set the restaurant_id
-        new_menu_item.restaurant_id = restaurant_id
-        """ Check to see if the form fields are completed and add to the
-        session as necessary """
-        if request.form['itemname']:
-            new_menu_item.name = request.form['itemname']
-        if request.form['itemcourse']:
-            new_menu_item.course = request.form['itemcourse']
-        if request.form['itemdesc']:
-            new_menu_item.description = request.form['itemdesc']
-        if request.form['itemcost']:
-            new_menu_item.price = request.form['itemcost']
-        # Add the form data to the session for a new menu item
-        session.add(new_menu_item)
-        # Commit the addition to the database
-        session.commit()
-        # Send the Flash Message - Menu item added.
-        flash("The new menu item has been successfully added!", "success")
-        # Redirect the user back to the restaurant menu
-        return redirect( url_for('showMenu', restaurant_id=restaurant_id) )
-    else:
-        # Query the database for the specific restaurant information
-        restaurant = session.query(Restaurant).filter_by(id=restaurant_id).one()
-        return render_template('newMenuItem.html', restaurant_id=restaurant_id,
-        restaurant=restaurant.name)
-
-# This page will show a form to edit a menu item.
-# Create the route and include only both the GET and POST methods
-@app.route('/restaurants/<int:restaurant_id>/menu/<int:menu_id>/edit',
-methods=['GET','POST'])
-# Create the function to edit an existing menu item for an existing restaurant
-def editMenuItem(restaurant_id, menu_id):
-    # POST method actions
-    if request.method == 'POST':
-        # Set the update_menu_item variable with a db query for the record
-        update_menu_item = session.query(MenuItem).filter_by(id=menu_id).one()
-        # Check existance of form field and then set the parameter(s) to update
-        if request.form['itemname']:
-            update_menu_item.name = request.form['itemname']
-        if request.form['itemcourse']:
-            update_menu_item.course = request.form['itemcourse']
-        if request.form['itemcost']:
-            update_menu_item.price = request.form['itemcost']
-        if request.form['itemdesc']:
-            update_menu_item.description = request.form['itemdesc']
-            # Add the change to the session
-            session.add(update_menu_item)
-            # Commit the change to the DB
+            # Save edits to the itemCategory table
+            itemCategory = session.query(ItemCategories
+                                        ).filter(ItemCategories.itemId==int(itemId)
+                                        ).all()
+            for i in itemCategory:
+                i.categoryId = request.form['item_category']
             session.commit()
-            # Send the Flash Message - Menu item updated.
-            flash("The menu item successfully updated!", "success")
-        # Redirect the user back to the Restaurant List (main page)
-        return redirect( url_for('showMenu', restaurant_id=restaurant_id) )
-    # GET method actions
+            # Save edits to the inventory (price and count) table
+            itemInventory = session.query(Inventory
+                                        ).filter(Inventory.itemId==int(itemId)
+                                        ).all()
+            for i in itemInventory:
+                i.inventoryCount = request.form['item_inventory']
+                i.itemPrice = request.form['item_price']
+                i.lastUpdated = currentDateTime
+            # Commit the edits
+            session.commit()
+            """Flash message that the item was successfully added. Add BOOTSTRAP css classes as the
+            message category."""
+            flash('Item was successfully edited (%s)' % editedItem.itemName, 'badge badge-success')
+            return redirect(url_for('showMyItems'))
     else:
-        # Query the database for the restaurant information
-        restaurant = session.query(Restaurant).filter_by(id=restaurant_id).one()
-        # Query the database for the menu item information
-        menu_item = session.query(MenuItem).filter_by(id=menu_id).one()
-        # Render the editMenuItem page with the prefilled form (placeholders)
-        return render_template('editMenuItem.html',
-            restaurant_id=restaurant_id, restaurant=restaurant.name,
-            item=menu_item)
+        return render_template('editItem_LoggedIn.html', categories=categories, item=editedItem
+                                , logged_in=logged_in)
 
-# This page will show a form to delete a menu item.
-# Create the route and include only both the GET and POST methods
-@app.route('/restaurants/<int:restaurant_id>/menu/<int:menu_id>/delete'
-    , methods=['GET','POST'])
-# Create the function to delete an existing menu item for an existing restaurant
-def deleteMenuItem(restaurant_id, menu_id):
-    # POST method actions
+# Edit a restaurant
+@app.route('/catalog/items/<int:itemId>/delete/', methods=['POST'])
+def deleteItem(itemId):
+    if not login_session.get('access_token'):
+        return redirect('/')
+    else:
+        logged_in = True
+    ownerId = login_session["user_id"]
+    # Query the appropriate tables for the specified item to delete
+    deleteItem = session.query(Items.owner
+                                , Items.itemId
+                                , Items.itemName
+                                , Items.itemDescription
+                                , ItemPhotos.photoUrl
+                                , Inventory.itemPrice
+                                , ItemCategories.categoryId
+                                , Inventory.inventoryCount
+                                ).outerjoin(ItemCategories
+                                ).outerjoin(ItemPhotos
+                                ).outerjoin(Inventory
+                                ).filter(Items.itemId==int(itemId)
+                                ).filter(Items.owner==int(ownerId)
+                                ).first()
+    # If the user is not the owner of the restaurant record, redirect to home
+    if deleteItem.owner != login_session.get('user_id'):
+        return redirect(url_for('showMyItems'))
     if request.method == 'POST':
-        """ Use the query parameters *restaurant_id* and *menu_id* to get the
-        correct restaurant's menu item to delete """
-        delete_menu_item = session.query(MenuItem).filter_by(id = int(menu_id)
-            , restaurant_id=int(restaurant_id)
-        ).one()
-        # Add the change to the session
-        session.delete(delete_menu_item)
-        # Commit the delete to the database
+        session.query(Items).filter(Items.itemId==int(itemId)).delete()
         session.commit()
-        # Send the Flash Message - Menu item deleted.
-        flash("The menu item has been successfully deleted!", "deleteSuccess")
-        # Redirect back to the restaurant list (main page)
-        return redirect(url_for('showMenu', restaurant_id=restaurant_id))
-    # GET method actions
+        """Flash message that the item was successfully added. Add BOOTSTRAP css classes as the
+        message category."""
+        flash('Item was successfully deleted (%s)' % deleteItem.itemName, 'badge badge-success')
+        return redirect(url_for('showMyItems'))
     else:
-        # Query the database for the restaurant information
-        restaurant = session.query(Restaurant).filter_by(id=restaurant_id).one()
-        # Query the database for the menu item information
-        menu_item = session.query(MenuItem).filter_by(id=menu_id).one()
-        # Render the confirmation page before deleting the item
-        return render_template('deleteMenuItem.html'
-            , restaurant_id=restaurant_id, restaurant=restaurant.name,
-            item=menu_item)
-
-@app.route('/restaurants/data/JSON')
-def showRestaurantsJSON():
-    # This page will show all restaurants in JSON format.
-    restaurant = session.query(Restaurant).all()
-    return jsonify(Restaurants=[i.serialize for i in restaurant])
-
-@app.route('/restaurants/<int:restaurant_id>/data/JSON')
-def showRestaurantMenuJSON(restaurant_id):
-    # This page will show a restaurant menu in JSON format.
-    restaurant = session.query(Restaurant).filter_by(id=restaurant_id).one()
-    items = session.query(MenuItem).filter_by(restaurant_id=restaurant_id).all()
-    return jsonify(MenuItems=[i.serialize for i in items])
-
-@app.route('/restaurants/<int:restaurant_id>/menu/<int:menu_id>/data/JSON')
-def showRestaurantMenuItemJSON(restaurant_id, menu_id):
-    # This page will show a single restaurant menu item in JSON format.
-    restaurant = session.query(Restaurant).filter_by(id=restaurant_id).one()
-    item = session.query(MenuItem).filter_by(restaurant_id=restaurant_id,
-    id=menu_id).one()
-    return jsonify(item.serialize)
-
+        return redirect(url_for('showMyItems'))
 
 
 if __name__ == '__main__':
     app.secret_key = 'dja90d8fa0sdnfasidpfaksjfd9s8ad'
     app.debug = True
-    app.run(host = '0.0.0.0', port = 8000)
+    app.run(host = '0.0.0.0', port = 5000) # , ssl_context=('cert.pem', 'key.pem')

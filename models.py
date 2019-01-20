@@ -16,8 +16,7 @@ import random, string
 
 # Construct the base class
 Base = declarative_base()
-secret_key = ''.join(random.choice(string.ascii_uppercase + string.digits) for
-                x in xrange(32))
+secret_key = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(32))
 
 
 # Create a class for the Employee table

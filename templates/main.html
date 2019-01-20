@@ -6,31 +6,62 @@
 	    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
 	<!-- Bootstrap CSS -->
-	    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+	    <link rel="stylesheet"
+			href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css"
+			integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS"
+			crossorigin="anonymous">
 	    <script src="https://unpkg.com/ionicons@4.5.0/dist/ionicons.js"></script>
 	    <title>HomeBuilt!</title>
+		<style type="text/css">
+		.clipped {
+			width: 155px;
+			height: 125px;
+			overflow: hidden;
+		}
+		.clipped img {
+			width: 260px;
+			height: 250px;
+			margin: -55px 0 0 -10px;
+		}
+		.clipped-large {
+			width: 300px;
+			height: 250px;
+			overflow: hidden;
+		}
+		.clipped-large img {
+			width: 260px;
+			height: 250px;
+			margin: -20px 0 0 -10px;
+		}
+		</style>
 	</head>
 	<body>
 	    <div class="container mt-2 mb-4">
 	        <div class="row">
 	            <div class="col-sm">
-	                <a href="/"><h1>HomeBuilt! Logo</h1></a>
+	                <a href="/"><img src="{{ url_for('static', filename='logo-header.png') }}"
+						width="350" alt="Logo: Home Built! Your projects, your way!"></a>
 	            </div>
 	            {% if logged_in %}
 	                <div class="col-2"><a href="/myCatalog">My Catalog</a></div>
 	                <div class="col-2">
-	                    <a href="/gdisconnect"><button type="button" class="btn btn-primary">Log Out</button></a>
+	                    <a href="/gdisconnect"><button type="button" class="btn btn-primary">Log Out
+												</button></a>
 	                </div>
 	            {% endif %}
 	            {% if not logged_in %}
 	                <div class="col-1">
-	                    <a href="/login"><button type="button" class="btn btn-primary">Login</button></a>
+	                    <a href="/login"><button type="button" class="btn btn-primary">Login
+											</button></a>
 	                </div>
 	            {% endif %}
 	        </div>
 	    </div>
 	    <div class="container border pt-3 pb-3">
 	        <div class="row" align="center">
+				<div class="col-sm">
+					<a href="/catalog">Home</a>
+				</div>
 	            {% for c in categories %}
 	                <div class="col-sm">
 	                    <a href="/catalog/{{c.categoryName.lower()}}">{{c.categoryName}}</a>
@@ -43,8 +74,20 @@
 	            <div class="row">
 	                <div class="col-4">
                         <!-- <div class="form-group">
-                            <input type="email" class="form-control" id="FormControlSearch1" placeholder="Search">
+                            <input type="email" class="form-control" id="FormControlSearch1"
+							placeholder="Search">
                         </div> -->
+						<div class = 'flash'>
+							{% with messages = get_flashed_messages(with_categories=true) %}
+								{% if messages %}
+									<ul>
+										{% for category, message in messages %}
+											<span class="{{ category }}">{{ message }}</li>
+										{% endfor %}
+									</ul>
+								{% endif %}
+							{% endwith %}
+						</div>
 	                </div>
 	                <div class="col-1">
 	                    <!-- <ion-icon name="search" size="large"></ion-icon> -->
@@ -53,17 +96,45 @@
 	                <div class="col-5 text-right">
 		            	{% if logged_in %}
 							<nav class="navbar navbar-expand-lg navbar-light bg-light">
-								<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+								<button class="navbar-toggler" type="button" data-toggle="collapse"
+									data-target="#navbarNavAltMarkup"
+									aria-controls="navbarNavAltMarkup" aria-expanded="false"
+									aria-label="Toggle navigation">
 									<span class="navbar-toggler-icon"></span>
 								</button>
 								<div class="collapse navbar-collapse" id="navbarNavAltMarkup">
 									<div class="navbar-nav">
-										<a class="nav-item nav-link" href="/myCatalog">My Catalog Items</a>
+										<a class="nav-item nav-link" href="/myCatalog">My Catalog
+											Items</a>
 										{% if json_link %}
-											<a class="nav-item nav-link" href="{{ json_link }}">JSON Endpoint</a>
+											<a class="nav-item nav-link" href="{{ json_link }}">JSON
+												Endpoint</a>
 										{% else %}
-											<a class="nav-item nav-link" href="#">No JSON Endpoint</a>
+											<a class="nav-item nav-link" href="#">No JSON Endpoint
+											</a>
 										{% endif %}
+									</div>
+								</div>
+							</nav>
+						{% else %}
+							<nav class="navbar navbar-expand-lg navbar-light bg-light text-right">
+								<button class="navbar-toggler" type="button" data-toggle="collapse"
+									data-target="#navbarNavAltMarkup"
+									aria-controls="navbarNavAltMarkup" aria-expanded="false"
+									aria-label="Toggle navigation">
+									<span class="navbar-toggler-icon"></span>
+								</button>
+								<div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+									<div class="navbar-nav container-fluid">
+										<ul class="text-right">
+										{% if json_link %}
+											<a class="nav-item nav-link mr-right" href="{{ json_link }}">JSON
+												Endpoint</a>
+										{% else %}
+											<a class="nav-item nav-link" href="#">No JSON Endpoint
+											</a>
+										{% endif %}
+									</ul>
 									</div>
 								</div>
 							</nav>
@@ -72,48 +143,54 @@
 	            </div>
 	        </div>
 	    </form>
-			{% block content %}
-			{% endblock %}
-		    <div class="container border bg-dark text-light pt-3 pb-3">
-		        <div class="row" align="center">
-		            <div class="col-4">
-		                About
-		            </div>
-		            <div class="col-4 align-middle">
-		                <ion-icon name="logo-pinterest" size="large"></ion-icon>
-		                <ion-icon name="logo-instagram" size="large"></ion-icon>
-		                <ion-icon name="logo-twitter" size="large"></ion-icon>
-		                <ion-icon name="logo-facebook" size="large"></ion-icon>
-		            </div>
-		            <div class="col-4">
-		                Help
-		            </div>
-		        </div>
-		    </div>
-		    <div class="container mb-5">
-		        <div class="row">
-		            <div class="col-8">
-		                &copy;2019 Jason Ritchie
-		            </div>
-		            <div class="col-4" align="right">
-		                <div class="container">
-		                    <div class="row">
-		                        <div class="col-6">
-		                            Terms of Use
-		                        </div>
-		                        <div class="col-6">
-		                            Privacy Policy
-		                        </div>
-		                    </div>
-		                </div>
-		            </div>
-		        </div>
-		    </div>
+		{% block content %}
+		{% endblock %}
+	    <div class="container border bg-dark text-light pt-3 pb-3">
+	        <div class="row" align="center">
+	            <div class="col-4">
+	                About
+	            </div>
+	            <div class="col-4 align-middle">
+	                <ion-icon name="logo-pinterest" size="large"></ion-icon>
+	                <ion-icon name="logo-instagram" size="large"></ion-icon>
+	                <ion-icon name="logo-twitter" size="large"></ion-icon>
+	                <ion-icon name="logo-facebook" size="large"></ion-icon>
+	            </div>
+	            <div class="col-4">
+	                Help
+	            </div>
+	        </div>
+	    </div>
+	    <div class="container mb-5">
+	        <div class="row">
+	            <div class="col-8">
+	                &copy;2019 Jason Ritchie
+	            </div>
+	            <div class="col-4" align="right">
+	                <div class="container">
+	                    <div class="row">
+	                        <div class="col-6">
+	                            Terms of Use
+	                        </div>
+	                        <div class="col-6">
+	                            Privacy Policy
+	                        </div>
+	                    </div>
+	                </div>
+	            </div>
+	        </div>
+	    </div>
 
-		    <!-- Optional JavaScript -->
-		    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-		    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-		    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
-		    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
-		</body>
-		</html>
+	    <!-- Optional JavaScript -->
+	    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+	    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+			integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+			crossorigin="anonymous"></script>
+	    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js"
+			integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut"
+			crossorigin="anonymous"></script>
+	    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js"
+			integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k"
+			crossorigin="anonymous"></script>
+	</body>
+	</html>

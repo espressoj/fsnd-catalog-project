@@ -1,0 +1,10 @@
+{% extends "main.html" %}
+{% block content %}{{access_token}}
+<div class="jumbotron jumbotron-fluid">
+    <div class="container">
+        <h1 class="display-4">Ruh-roh, Raggy!</h1>
+        <h3>Looks like we've run into a problem. Take a look below</h3>
+        <p class="lead"><div class="shadow p-3 mb-5 bg-white rounded">{{ error }}</div></p>
+    </div>
+</div>
+{% endblock %}

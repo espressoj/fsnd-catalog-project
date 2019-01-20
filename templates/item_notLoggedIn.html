@@ -1,5 +1,22 @@
 {% extends "main.html" %}
 {% block content %}
+    <div id="exampleModal" class="modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content text-center">
+                <div class="modal-header">
+                    <h5 class="modal-title">{{item.itemName}}</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <img src="{{item.photoUrl}}" class="mr-3" style="max-width:750px">
+                </div>
+                <div class="modal-footer">
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="container pt-3 pb-4">
         <div class="row">
             <div class="col-9">
@@ -7,7 +24,7 @@
                 <div class="container  pt-3 pb-4" style="display:{{itemDisplay}}">
                     <div class="row">
                         <div class="col-6 mt-2 mt-2 bg-light border pt-3 pb-3">
-                            <div class="media">
+                            <div class="media" data-toggle="modal" data-target="#exampleModal">
                                 <img src="{{item.photoUrl}}" class="mr-3"  style="max-width:400px;">
                             </div>
                         </div>

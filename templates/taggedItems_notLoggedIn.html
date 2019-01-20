@@ -8,14 +8,15 @@
                 <div class="container  pt-3 pb-4">
                     <div class="row">
                         {% for i in taggedItems %}
-                            <div class="col-2 mt-2 mt-2 bg-light border pt-3 pb-3">
-                                <div class="media">
-                                    <img src="{{i.photoUrl}}" class="mr-3" style="max-height:75px;">
+                            <div class="col-3 mt-2 mt-2 bg-light border pt-3 pb-3">
+                                <div class="media clipped">
+                                    <img src="{{i.photoUrl}}" class="mr-3" style="max-width:300px;">
                                 </div>
                             </div>
-                            <div class="col-10 mt-2 mt-2 bg-light border pt-3 pb-3">
+                            <div class="col-9 mt-2 mt-2 bg-light border pt-3 pb-3">
                                 <div class="media-body">
-                                    <h5 class="mt-0"><a href="/catalog/items/{{i.itemId}}">{{i.itemName}}</a></h5>
+                                    <h5 class="mt-0"><a href="/catalog/items/{{i.itemId}}">
+                                        {{i.itemName}}</a></h5>
                                     {{i.itemDescription}}
                                 </div>
                             </div>
@@ -26,7 +27,8 @@
             <div class="col-3">
                 <h5>&nbsp;</h5>
                 {% for t in tagCloud %}
-                    <a href="/catalog/tags/{{t.tag}}"><div class="badge badge-primary p-2 m-2">{{t.tag}}</div></a>
+                    <a href="/catalog/tags/{{t.tag}}"><div class="badge badge-primary p-2 m-2">
+                        {{t.tag}}</div></a>
                 {% endfor %}
             </div>
         </div>
