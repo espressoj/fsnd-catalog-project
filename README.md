@@ -6,7 +6,7 @@ This is a python program and thus, you will need a python interpreter.  For more
 * 2.7.12
 * 3.5.2
 
-One the following library(ies) must be installed to appropriately connect to the PostgreSQL database.
+The following library(ies) must be installed to run the program.
 * datetime
 * flask
 * httplib2
