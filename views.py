@@ -707,4 +707,4 @@ def deleteItem(itemId):
 if __name__ == '__main__':
     app.secret_key = 'dja90d8fa0sdnfasidpfaksjfd9s8ad'
     app.debug = True
-    app.run(host = '0.0.0.0', port = 5000) # , ssl_context=('cert.pem', 'key.pem')
+    app.run(host = '0.0.0.0', port = 8000) # , ssl_context=('cert.pem', 'key.pem')

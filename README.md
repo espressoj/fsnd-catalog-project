@@ -35,7 +35,7 @@ pip3 install _library_name_
 ## Directions
 1. From a console program use the following code to start the web server and run the web site.
 $  ```python views.py``` or $  ```python3 views.py``` _(depending on the version of Python you want to use.)_
-2. Open a web browser and go to http://localhost:5000.
+2. Open a web browser and go to http://localhost:8000.
 3. If you would like to log in, click the log in button and use a Google account with the sign-in.
 4. When logged in, add, edit, or delete any items of your own. _(You cannot modify any items except those you own.)_
 
