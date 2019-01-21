@@ -11,7 +11,7 @@
                             <label for="item_name" class="col-sm-2 col-form-label">Item Name</label>
                             <div class="col-sm-10">
                                 <input type="text" class="form-control" name="item_name"
-                                id="item_name" placeholder="Item Name">
+                                id="item_name" placeholder="Item Name" required>
                             </div>
                         </div>
                         <div class="form-group row">
@@ -19,7 +19,7 @@
                                 Description</label>
                             <div class="col-sm-10">
                                 <textarea class="form-control" rows="5" name="item_description"
-                                id="item_description"></textarea>
+                                id="item_description" required></textarea>
                             </div>
                         </div>
                         <fieldset class="form-group">
@@ -30,7 +30,7 @@
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio"
                                         name="item_category" id="{{c.categoryName}}"
-                                        value="{{c.categoryId}}">
+                                        value="{{c.categoryId}}" required>
                                         <label class="form-check-label" for="item_category">
                                             {{c.categoryName}}
                                         </label>
@@ -44,7 +44,7 @@
                             </label>
                             <div class="col-sm-10">
                                 <input type="text" class="form-control col-sm-2"
-                                name="item_inventory" id="item_inventory" placeholder="">
+                                name="item_inventory" id="item_inventory" placeholder="" required>
                             </div>
                         </div>
                         <div class="form-row align-items-center">
@@ -56,7 +56,7 @@
                                         <div class="input-group-text">$</div>
                                     </div>
                                     <input type="text" class="form-control" name="item_price"
-                                    id="item_price" placeholder="Price">
+                                    id="item_price" placeholder="Price" required>
                                 </div>
                             </div>
                         </div>

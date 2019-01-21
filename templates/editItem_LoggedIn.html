@@ -11,7 +11,7 @@
                             <label for="item_name" class="col-sm-2 col-form-label">Item Name</label>
                             <div class="col-sm-10">
                                 <input type="text" class="form-control" name="item_name"
-                                id="item_name" value="{{item.itemName}}">
+                                id="item_name" value="{{item.itemName}}" required>
                             </div>
                         </div>
                         <div class="form-group row">
@@ -19,7 +19,7 @@
                                 Description</label>
                             <div class="col-sm-10">
                                 <textarea class="form-control" rows="5" name="item_description"
-                                id="item_description">{{item.itemDescription}}</textarea>
+                                id="item_description" required>{{item.itemDescription}}</textarea>
                             </div>
                         </div>
                         <fieldset class="form-group">
@@ -35,7 +35,7 @@
                                         {% else %}
                                             <input class="form-check-input" type="radio"
                                             name="item_category" id="{{c.categoryName}}"
-                                            value="{{c.categoryId}}">
+                                            value="{{c.categoryId}}" required>
                                         {% endif %}
                                         <label class="form-check-label" for="item_category">
                                             {{c.categoryName}}
@@ -51,7 +51,7 @@
                             <div class="col-sm-10">
                                 <input type="text" class="form-control col-sm-2"
                                 name="item_inventory" id="item_inventory"
-                                value="{{item.inventoryCount}}">
+                                value="{{item.inventoryCount}}" required>
                             </div>
                         </div>
                         <div class="form-row align-items-center">
@@ -63,7 +63,7 @@
                                         <div class="input-group-text">$</div>
                                     </div>
                                     <input type="text" class="form-control" name="item_price"
-                                    id="item_price" value="{{item.itemPrice}}">
+                                    id="item_price" value="{{item.itemPrice}}" required>
                                 </div>
                             </div>
                         </div>

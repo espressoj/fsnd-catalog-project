@@ -656,11 +656,15 @@ def addCatalogItem():
                                logged_in=logged_in)
 
 
-# Edit a restaurant
+# Edit a catalog item
 @app.route('/catalog/items/<int:itemId>/update/', methods=['GET', 'POST'])
 def editItem(itemId):
     # If the logged in user is not the owner of the item record, redirect home
     if not login_session.get('access_token'):
+        """Flash message that the item was successfully added. Add BOOTSTRAP
+        css classes as the message category."""
+        flash('You\'re not authorized to edit/delete items from the database',
+              'badge badge-warning')
         return redirect('/')
     else:
         logged_in = True
@@ -684,6 +688,10 @@ def editItem(itemId):
                   filter(Items.owner == int(ownerId)).
                   first())
     if not editedItem or editedItem.owner != ownerId:
+        """Flash message that the item was successfully added. Add BOOTSTRAP
+        css classes as the message category."""
+        flash('You\'re not authorized to edit/delete this item.',
+              'badge badge-warning')
         return redirect(url_for('showMyItems'))
     # print(editedItem)
     if request.method == 'POST':
