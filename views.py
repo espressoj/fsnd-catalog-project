@@ -2,14 +2,15 @@
 import json
 import random
 import string
-from flask import Flask, render_template, request, redirect, jsonify, url_for, flash, make_response
+from flask import (Flask, render_template, request, redirect, jsonify,
+                   url_for, flash, make_response)
 from flask import session as login_session
 from sqlalchemy import create_engine, asc, text
 from sqlalchemy.orm import sessionmaker, joinedload, relationship
 import requests
-from models import Base, User, Items, Categories, Inventory, ItemCategories, ItemTags, ItemPhotos
+from models import (Base, User, Items, Categories, Inventory, ItemCategories,
+                    ItemTags, ItemPhotos)
 import datetime
-#from marshmallow import Schema, fields
 
 # IMPORTS FOR THIS STEP
 from oauth2client.client import flow_from_clientsecrets
@@ -20,18 +21,20 @@ import logging
 # DEBUGGING - Turn on logging to text file.
 """ REMOVE LOG FILE FROM GIT ADD ."""
 logging.basicConfig(level=logging.DEBUG, filename="PythonLogs_Catalog.txt")
-#logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+# logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 
 app = Flask(__name__)
 # DEBUGGING - Echo the SQL
 # app.config['SQLALCHEMY_ECHO'] = True
-CLIENT_ID = json.loads(open('client_secrets.json', 'r').read())['web']['client_id']
+CLIENT_ID = json.loads(open('client_secrets.json',
+                       'r').read())['web']['client_id']
 APPLICATION_NAME = "HomeBuilt! Catalog Application"
 
 
 # Connect to Database and create database session
-engine = create_engine('sqlite:///catalog.db', connect_args={'check_same_thread': False})
+engine = create_engine('sqlite:///catalog.db',
+                       connect_args={'check_same_thread': False})
 Base.metadata.bind = engine
 
 DBSession = sessionmaker(bind=engine)
@@ -40,10 +43,12 @@ session = DBSession()
 currentDateTime = datetime.datetime.now()
 # print(currentDateTime)
 
+
 # Create anti-forgery state token
 @app.route('/login')
 def showLogin():
-    state = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in xrange(32))
+    state = ''.join(random.choice(string.ascii_uppercase +
+                    string.digits) for x in xrange(32))
     login_session['state'] = state
     # return "The current session state is %s" % login_session['state']
     return render_template('login.html', STATE=state)
@@ -74,6 +79,7 @@ def gconnect():
     access_token = credentials.access_token
     url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
            % access_token)
+    # print(url)
     h = httplib2.Http()
     result = json.loads(h.request(url, 'GET')[1])
     # If there was an error in the access token info, abort.
@@ -101,7 +107,8 @@ def gconnect():
     stored_access_token = login_session.get('access_token')
     stored_gplus_id = login_session.get('gplus_id')
     if stored_access_token is not None and gplus_id == stored_gplus_id:
-        response = make_response(json.dumps('Current user is already connected.'),
+        response = make_response(json.dumps('Current user is already ' +
+                                            'connected.'),
                                  200)
         response.headers['Content-Type'] = 'application/json'
         return response
@@ -132,12 +139,14 @@ def gconnect():
     output += '<img src="'
     output += login_session['picture']
     output += ' " style = "width: 255px; height: 255px;border-radius: 60px;'
-    output += '-webkit-border-radius: 60px;-moz-border-radius: 60px;"> '
-    """Flash message that the user was successfully logged out. Add BOOTSTRAP css classes as the
-    message category."""
-    flash("Logged in as %s" % login_session['username'], 'badge badge-secondary')
+    output += '-webkit-border-radius: 60px;-moz-border-radius: 60px;">'
+    """Flash message that the user was successfully logged out. Add BOOTSTRAP
+    css classes as the message category."""
+    flash("Logged in as %s" % login_session['username'],
+          'badge badge-secondary')
     print("done!")
     return output
+
 
 @app.route('/gdisconnect')
 def gdisconnect():
@@ -152,7 +161,8 @@ def gdisconnect():
     # print('In gdisconnect access token is %s' % access_token)
     # print('User name is: %s' % login_session['username'])
     # print('Access Token is: %s' % login_session['access_token'])
-    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
+    url = ('https://accounts.google.com/o/oauth2/revoke?token=%s' %
+           login_session['access_token'])
     # print('URL is: %s' % url)
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
@@ -165,11 +175,12 @@ def gdisconnect():
     del login_session['picture']
     del login_session['user_id']
     if result['status'] == '200':
-        response = make_response(json.dumps('Successfully disconnected.'), 200)
+        response = make_response(json.dumps('Successfully disconnected.'),
+                                 200)
         response.headers['Content-Type'] = 'application/json'
         # print (response)
-        """Flash message that the user was successfully logged out. Add BOOTSTRAP css classes as the
-        message category."""
+        """Flash message that the user was successfully logged out. Add
+        BOOTSTRAP css classes as the message category."""
         flash('You successfully logged out.', 'badge badge-success')
         return redirect(url_for('home'))
     else:
@@ -180,28 +191,32 @@ def gdisconnect():
         response.headers['Content-Type'] = 'application/json'
         return render_template('error.html', error=errorMessage)
 
+
 # Method to check if email exists in database
 def getUserID(email):
     try:
-        user = session.query(User).filter_by(email = email).one()
+        user = session.query(User).filter_by(email=email).one()
         login_session['user_id'] = user.id
         return user.id
     except:
         return None
 
+
 # Method to get a user's info
 def getUserInfo(userid):
-    user = session.query(User).filter_by(id = userid).one()
+    user = session.query(User).filter_by(id=userid).one()
     return user
+
 
 # Method to Create a new user
 def createUser(login_session):
-    new_user = User(name = login_session['username'], email =
-        login_session['email'], username = login_session['email'],
-        picture = login_session['picture'])
+    new_user = User(name=login_session['username'],
+                    email=login_session['email'],
+                    username=login_session['email'],
+                    picture=login_session['picture'])
     session.add(new_user)
     session.commit()
-    user = session.query(User).filter_by(email = login_session['email']).one()
+    user = session.query(User).filter_by(email=login_session['email']).one()
     login_session['user_id'] = user.id
     return user.id
 
@@ -219,49 +234,55 @@ def home():
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the latest 5 items
     """MOST RECENT 5"""
-    latestItems = session.query(Items.itemId
-                                , Items.itemName
-                                , Items.itemDescription
-                                , ItemPhotos.photoUrl
-                                ).join(ItemPhotos
-                                ).limit(5
-                                ).all()
+    latestItems = (session.query(Items.itemId,
+                                 Items.itemName,
+                                 Items.itemDescription,
+                                 ItemPhotos.photoUrl).
+                   join(ItemPhotos).
+                   limit(5).
+                   all())
     # Query the top 30 tags
     tagCloud = session.query(ItemTags).limit(30).all()
     # set the JSON link for the template page.
     json_link = "/catalog/JSON"
-    return render_template('home_notLoggedIn.html', categories=categories, latestItems=latestItems
-                            , tagCloud=tagCloud, logged_in=logged_in, json_link=json_link)
+    return render_template('home_notLoggedIn.html',
+                           categories=categories,
+                           latestItems=latestItems,
+                           tagCloud=tagCloud,
+                           logged_in=logged_in,
+                           json_link=json_link)
+
 
 # JSON APIs to view full catalog
 @app.route('/catalog/JSON')
 def fullCatalogJSON():
-    items = session.query(Items.itemId
-                        , Items.itemName
-                        , Items.itemDescription
-                        , Inventory.itemPrice
-                        , Inventory.inventoryCount
-                        , Categories.categoryName
-                        , ItemPhotos.photoUrl
-                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
-                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
-                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
-                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
-                        ).all()
+    items = (session.query(Items.itemId,
+                           Items.itemName,
+                           Items.itemDescription,
+                           Inventory.itemPrice,
+                           Inventory.inventoryCount,
+                           Categories.categoryName,
+                           ItemPhotos.photoUrl).
+             outerjoin(Inventory, Items.itemId == Inventory.itemId).
+             outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId).
+             outerjoin(Categories, ItemCategories.categoryId ==
+                       Categories.categoryId).
+             outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId).
+             all())
     allItems = []
     itemDict = {}
     # Serialize the query data
     for i in items:
         itemDict = {
-            "item_id"       : i.itemId,
-            "item_name"     : i.itemName,
-            "item_desc"     : i.itemDescription,
-            "item_price"    : i.itemPrice,
-            "item_category" : i.categoryName,
-            "item_photo"    : i.photoUrl,
+            "item_id": i.itemId,
+            "item_name": i.itemName,
+            "item_desc": i.itemDescription,
+            "item_price": i.itemPrice,
+            "item_category": i.categoryName,
+            "item_photo": i.photoUrl,
         }
         allItems.append(itemDict)
-    #print(allItems)
+    # print(allItems)
     return jsonify(catalogItems=allItems)
 
 
@@ -278,26 +299,32 @@ def showMyItems():
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the database for the specific restaurant information
-    myItems = session.query(Items.itemId
-                        , Items.itemName
-                        , Items.itemDescription
-                        , Inventory.itemPrice
-                        , Inventory.inventoryCount
-                        , Categories.categoryName
-                        , ItemPhotos.photoUrl
-                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
-                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
-                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
-                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
-                        ).filter(Items.owner == ownerId
-                        ).all()
+    myItems = (session.query(Items.itemId,
+                             Items.itemName,
+                             Items.itemDescription,
+                             Inventory.itemPrice,
+                             Inventory.inventoryCount,
+                             Categories.categoryName,
+                             ItemPhotos.photoUrl).
+               outerjoin(Inventory, Items.itemId == Inventory.itemId).
+               outerjoin(ItemCategories, Items.itemId ==
+                         ItemCategories.itemId).
+               outerjoin(Categories, ItemCategories.categoryId ==
+                         Categories.categoryId).
+               outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId).
+               filter(Items.owner == ownerId).
+               all())
     # print(myItems)
     # set the JSON link for the template page.
     json_link = "/myCatalog/JSON"
     # Render the menu page sending the restaurant and menu information
-    return render_template('myCatalogItems.html', ownerid=ownerId,
-                            myItems=myItems, categories=categories, email=login_session['email'],
-                            logged_in=logged_in, json_link=json_link)
+    return render_template('myCatalogItems.html',
+                           ownerid=ownerId,
+                           myItems=myItems,
+                           categories=categories,
+                           email=login_session['email'],
+                           logged_in=logged_in,
+                           json_link=json_link)
 
 
 # JSON APIs to view myCatalog items - based on user_id in session
@@ -308,36 +335,37 @@ def myCatalogJSON():
     else:
         logged_in = True
     ownerId = login_session["user_id"]
-    items = session.query(Items.itemId
-                        , Items.itemName
-                        , Items.itemDescription
-                        , Inventory.itemPrice
-                        , Inventory.inventoryCount
-                        , Categories.categoryName
-                        , ItemPhotos.photoUrl
-                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
-                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
-                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
-                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
-                        ).filter(Items.owner == ownerId
-                        ).all()
+    items = (session.query(Items.itemId,
+                           Items.itemName,
+                           Items.itemDescription,
+                           Inventory.itemPrice,
+                           Inventory.inventoryCount,
+                           Categories.categoryName,
+                           ItemPhotos.photoUrl).
+             outerjoin(Inventory, Items.itemId == Inventory.itemId).
+             outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId).
+             outerjoin(Categories, ItemCategories.categoryId ==
+                       Categories.categoryId).
+             outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId).
+             filter(Items.owner == ownerId).
+             all())
     allItems = []
     itemDict = {}
     for i in items:
         itemDict = {
-            "item_id"       : i.itemId,
-            "item_name"     : i.itemName,
-            "item_desc"     : i.itemDescription,
-            "item_price"    : i.itemPrice,
-            "item_category" : i.categoryName,
-            "item_photo"    : i.photoUrl,
+            "item_id": i.itemId,
+            "item_name": i.itemName,
+            "item_desc": i.itemDescription,
+            "item_price": i.itemPrice,
+            "item_category": i.categoryName,
+            "item_photo": i.photoUrl,
         }
         allItems.append(itemDict)
     # print(allItems)
     return jsonify(myCatalogItems=allItems)
 
 
-# This page will display all items of a selected category for a non-logged-in user.
+# This page will display all items of selected category for non-logged-in user
 @app.route('/catalog/<categoryName>/')
 def showCategoryItems(categoryName):
     if not login_session.get('access_token'):
@@ -347,17 +375,17 @@ def showCategoryItems(categoryName):
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the latest 6 items
-    categoryItems = session.query(Items.itemId
-                                , Items.itemName
-                                , Items.itemDescription
-                                , ItemPhotos.photoUrl
-                                , ItemCategories.categoryId
-                                , Categories.categoryName
-                                ).join(ItemPhotos
-                                ).join(ItemCategories
-                                ).join(Categories
-                                ).filter_by(categoryName=categoryName.title()
-                                ).all()
+    categoryItems = (session.query(Items.itemId,
+                                   Items.itemName,
+                                   Items.itemDescription,
+                                   ItemPhotos.photoUrl,
+                                   ItemCategories.categoryId,
+                                   Categories.categoryName).
+                     join(ItemPhotos).
+                     join(ItemCategories).
+                     join(Categories).
+                     filter_by(categoryName=categoryName.title()).
+                     all())
     # Display the number of records found
     if len(categoryItems) == 0:
         countMessage = "No items were found in this category."
@@ -368,9 +396,14 @@ def showCategoryItems(categoryName):
     tagCloud = session.query(ItemTags).limit(30).all()
     """ADD RANDOM IMAGES"""
     json_link = "/catalog/%s/JSON" % categoryName
-    return render_template('categoryItems_notLoggedIn.html', categories=categories
-                            , categoryItems=categoryItems, catName=categoryName, tagCloud=tagCloud
-                            , countMessage=countMessage, logged_in=logged_in, json_link=json_link)
+    return render_template('categoryItems_notLoggedIn.html',
+                           categories=categories,
+                           categoryItems=categoryItems,
+                           catName=categoryName,
+                           tagCloud=tagCloud,
+                           countMessage=countMessage,
+                           logged_in=logged_in,
+                           json_link=json_link)
 
 
 # JSON APIs to view myCatalog items - based on user_id in session
@@ -381,37 +414,39 @@ def showCategoryItemsJSON(categoryName):
     else:
         logged_in = True
     # Query the latest 6 items
-    categoryItems = session.query(Items.itemId
-                        , Items.itemName
-                        , Items.itemDescription
-                        , Inventory.itemPrice
-                        , Inventory.inventoryCount
-                        , Categories.categoryName
-                        , ItemPhotos.photoUrl
-                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
-                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
-                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
-                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
-                        ).filter_by(categoryName=categoryName.title()
-                        ).all()
+    categoryItems = (session.query(Items.itemId,
+                                   Items.itemName,
+                                   Items.itemDescription,
+                                   Inventory.itemPrice,
+                                   Inventory.inventoryCount,
+                                   Categories.categoryName,
+                                   ItemPhotos.photoUrl).
+                     outerjoin(Inventory, Items.itemId == Inventory.itemId).
+                     outerjoin(ItemCategories, Items.itemId ==
+                               ItemCategories.itemId).
+                     outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId).
+                     outerjoin(Categories, ItemCategories.categoryId ==
+                               Categories.categoryId).
+                     filter_by(categoryName=categoryName.title()).
+                     all())
     allItems = []
     itemDict = {}
     for i in categoryItems:
         itemDict = {
-            "item_id"       : i.itemId,
-            "item_name"     : i.itemName,
-            "item_desc"     : i.itemDescription,
-            "item_price"    : i.itemPrice,
+            "item_id": i.itemId,
+            "item_name": i.itemName,
+            "item_desc": i.itemDescription,
+            "item_price": i.itemPrice,
             "item_inventory": i.inventoryCount,
-            "item_category" : i.categoryName,
-            "item_photo"    : i.photoUrl,
+            "item_category": i.categoryName,
+            "item_photo": i.photoUrl,
         }
         allItems.append(itemDict)
     # print(allItems)
     return jsonify(categoryItems=allItems)
 
 
-# This page will display all items of a with the selected tag for a non-logged-in user.
+# This page will display all items of a selected tag for a non-logged-in user.
 @app.route('/catalog/tags/<tag>/')
 def showTaggedItems(tag):
     if not login_session.get('access_token'):
@@ -421,15 +456,15 @@ def showTaggedItems(tag):
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the items with the supplied tag
-    taggedItems = session.query(Items.itemId
-                                , Items.itemName
-                                , Items.itemDescription
-                                , ItemPhotos.photoUrl
-                                , ItemTags.tag
-                                ).join(ItemPhotos
-                                ).join(ItemTags
-                                ).filter_by(tag=tag
-                                ).all()
+    taggedItems = (session.query(Items.itemId,
+                                 Items.itemName,
+                                 Items.itemDescription,
+                                 ItemPhotos.photoUrl,
+                                 ItemTags.tag,).
+                   join(ItemPhotos).
+                   join(ItemTags).
+                   filter_by(tag=tag).
+                   all())
     # FOR DUEBUG - Print the object in the console
     # print(taggedItems)
     # Display a count of the number of records found
@@ -440,9 +475,14 @@ def showTaggedItems(tag):
     # Query the top 30 tags
     tagCloud = session.query(ItemTags).limit(30).all()
     json_link = "/catalog/tags/%s/JSON" % tag
-    return render_template('taggedItems_notLoggedIn.html', categories=categories
-                            , taggedItems=taggedItems, tagCloud=tagCloud, tagName=tag
-                            , countMessage=countMessage, logged_in=logged_in, json_link=json_link)
+    return render_template('taggedItems_notLoggedIn.html',
+                           categories=categories,
+                           taggedItems=taggedItems,
+                           tagCloud=tagCloud,
+                           tagName=tag,
+                           countMessage=countMessage,
+                           logged_in=logged_in,
+                           json_link=json_link)
 
 
 # JSON APIs to view myCatalog items - based on user_id in session
@@ -453,27 +493,28 @@ def showTaggedItemsJSON(tag):
     else:
         logged_in = True
     # Query the items with the supplied tag
-    taggedItems = session.query(Items.itemId
-                                , Items.itemName
-                                , Items.itemDescription
-                                , ItemPhotos.photoUrl
-                                , ItemTags.tag
-                                ).join(ItemPhotos
-                                ).join(ItemTags
-                                ).filter_by(tag=tag
-                                ).all()
+    taggedItems = (session.query(Items.itemId,
+                                 Items.itemName,
+                                 Items.itemDescription,
+                                 ItemPhotos.photoUrl,
+                                 ItemTags.tag).
+                   join(ItemPhotos).
+                   join(ItemTags).
+                   filter_by(tag=tag).
+                   all())
     allItems = []
     itemDict = {}
     for i in taggedItems:
         itemDict = {
-            "item_id"       : i.itemId,
-            "item_name"     : i.itemName,
-            "item_desc"     : i.itemDescription,
-            "item_photo"    : i.photoUrl,
+            "item_id": i.itemId,
+            "item_name": i.itemName,
+            "item_desc": i.itemDescription,
+            "item_photo": i.photoUrl,
         }
         allItems.append(itemDict)
     # print(allItems)
     return jsonify(categoryItems=allItems)
+
 
 # This page will show the full item details for a non-logged-in user.
 @app.route('/catalog/items/<int:itemId>')
@@ -485,18 +526,18 @@ def showItemDetails(itemId):
     # Query all of the categories
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the specific item based on itemId
-    item = session.query(Items.itemId
-                        , Items.itemName
-                        , Items.itemDescription
-                        , ItemPhotos.photoUrl
-                        , Inventory.itemPrice
-                        , Inventory.inventoryCount
-                        ).outerjoin(ItemPhotos
-                        ).outerjoin(Inventory
-                        ).filter(Items.itemId==int(itemId)
-                        ).first()
+    item = (session.query(Items.itemId,
+                          Items.itemName,
+                          Items.itemDescription,
+                          ItemPhotos.photoUrl,
+                          Inventory.itemPrice,
+                          Inventory.inventoryCount).
+            outerjoin(ItemPhotos).
+            outerjoin(Inventory).
+            filter(Items.itemId == int(itemId)).
+            first())
     # FOR DUEBUG - Print the object in the console
-    print(item)
+    # print(item)
     # Display a count of the number of records found
     if not item:
         countMessage = "Item not found."
@@ -513,9 +554,15 @@ def showItemDetails(itemId):
     # Query the top 30 tags
     tagCloud = session.query(ItemTags).limit(30).all()
     json_link = "/catalog/items/%s/JSON" % str(itemId)
-    return render_template('item_notLoggedIn.html', categories=categories, tagCloud=tagCloud
-                            , itemDisplay=display, item=item, countMessageClass=countMessageClass
-                            , countMessage=countMessage, logged_in=logged_in, json_link=json_link)
+    return render_template('item_notLoggedIn.html',
+                           categories=categories,
+                           tagCloud=tagCloud,
+                           itemDisplay=display,
+                           item=item,
+                           countMessageClass=countMessageClass,
+                           countMessage=countMessage,
+                           logged_in=logged_in,
+                           json_link=json_link)
 
 
 # JSON APIs to view myCatalog items - based on user_id in session
@@ -525,29 +572,30 @@ def itemDetailsJSON(itemId):
         logged_in = False
     else:
         logged_in = True
-    items = session.query(Items.itemId
-                        , Items.itemName
-                        , Items.itemDescription
-                        , Inventory.itemPrice
-                        , Inventory.inventoryCount
-                        , Categories.categoryName
-                        , ItemPhotos.photoUrl
-                        ).outerjoin(Inventory, Items.itemId == Inventory.itemId
-                        ).outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId
-                        ).outerjoin(Categories, ItemCategories.categoryId == Categories.categoryId
-                        ).outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId
-                        ).filter(Items.itemId==int(itemId)
-                        ).all()
+    items = (session.query(Items.itemId,
+                           Items.itemName,
+                           Items.itemDescription,
+                           Inventory.itemPrice,
+                           Inventory.inventoryCount,
+                           Categories.categoryName,
+                           ItemPhotos.photoUrl).
+             outerjoin(Inventory, Items.itemId == Inventory.itemId).
+             outerjoin(ItemCategories, Items.itemId == ItemCategories.itemId).
+             outerjoin(Categories, ItemCategories.categoryId ==
+                       Categories.categoryId).
+             outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId).
+             filter(Items.itemId == int(itemId)).
+             all())
     allItems = []
     itemDict = {}
     for i in items:
         itemDict = {
-            "item_id"       : i.itemId,
-            "item_name"     : i.itemName,
-            "item_desc"     : i.itemDescription,
-            "item_price"    : i.itemPrice,
-            "item_category" : i.categoryName,
-            "item_photo"    : i.photoUrl,
+            "item_id": i.itemId,
+            "item_name": i.itemName,
+            "item_desc": i.itemDescription,
+            "item_price": i.itemPrice,
+            "item_category": i.categoryName,
+            "item_photo": i.photoUrl,
         }
         allItems.append(itemDict)
     # print(allItems)
@@ -556,7 +604,7 @@ def itemDetailsJSON(itemId):
 
 # "This page will show a form for adding a new item to a personal catalog."
 # Create the route and include both the POST and GET methods
-@app.route('/catalog/addItem', methods=['GET','POST'])
+@app.route('/catalog/addItem', methods=['GET', 'POST'])
 def addCatalogItem():
     if not login_session.get('access_token'):
         return redirect('/')
@@ -569,25 +617,29 @@ def addCatalogItem():
     if request.method == 'POST':
         # Set the name of the new restaurant into the dictionary
         new_item = Items(itemName=request.form['item_name'],
-                        itemDescription=request.form['item_description'],
-                        owner=ownerId,
-                        added=currentDateTime,
-                        modified=currentDateTime,
-                        status='A')
+                         itemDescription=request.form['item_description'],
+                         owner=ownerId,
+                         added=currentDateTime,
+                         modified=currentDateTime,
+                         status='A')
         # Add it to the session
         session.add(new_item)
         # Commit the addition to the database
         session.commit()
         addedItem = session.query(Items).order_by(Items.itemId.desc()).first()
-        """Flash message that the item was successfully added. Add BOOTSTRAP css classes as the
-        message category."""
-        flash('New item was successfully added! (%s)' % addedItem.itemName, 'badge badge-success')
-        new_item_category = ItemCategories(categoryId=request.form['item_category'],
-                                            itemId=addedItem.itemId)
+        """Flash message that the item was successfully added. Add BOOTSTRAP
+        css classes as the message category."""
+        flash('New item was successfully added! (%s)' % addedItem.itemName,
+              'badge badge-success')
+        new_cat = request.form['item_category']
+        new_count = request.form['item_inventory']
+        new_price = request.form['item_price']
+        new_item_category = ItemCategories(categoryId=new_cat,
+                                           itemId=addedItem.itemId)
         new_item_inventory = Inventory(itemId=addedItem.itemId,
-                                        inventoryCount=request.form['item_inventory'],
-                                        itemPrice=request.form['item_price'],
-                                        lastUpdated=currentDateTime)
+                                       inventoryCount=new_count,
+                                       itemPrice=new_price,
+                                       lastUpdated=currentDateTime)
         session.add(new_item_category)
         session.add(new_item_inventory)
         session.commit()
@@ -598,13 +650,16 @@ def addCatalogItem():
     # GET method actions
     else:
         # Display the Add New Restaurant form page
-        return render_template('addItem_LoggedIn.html', categories=categories
-                                , email=login_session['email'], logged_in=logged_in)
+        return render_template('addItem_LoggedIn.html',
+                               categories=categories,
+                               email=login_session['email'],
+                               logged_in=logged_in)
+
 
 # Edit a restaurant
 @app.route('/catalog/items/<int:itemId>/update/', methods=['GET', 'POST'])
 def editItem(itemId):
-    # If the logged in user is not the owner of the item record, redirect to home
+    # If the logged in user is not the owner of the item record, redirect home
     if not login_session.get('access_token'):
         return redirect('/')
     else:
@@ -613,20 +668,21 @@ def editItem(itemId):
     # Query all of the categories for the navigation bar
     categories = session.query(Categories).order_by("categoryName").all()
     # Query the item to edit
-    editedItem = session.query(Items.owner
-                                , Items.itemId
-                                , Items.itemName
-                                , Items.itemDescription
-                                , ItemPhotos.photoUrl
-                                , Inventory.itemPrice
-                                , ItemCategories.categoryId
-                                , Inventory.inventoryCount
-                                ).outerjoin(ItemCategories, Items.itemId==ItemCategories.itemId
-                                ).outerjoin(ItemPhotos, Items.itemId==ItemPhotos.itemId
-                                ).outerjoin(Inventory, Items.itemId==Inventory.itemId
-                                ).filter(Items.itemId==int(itemId)
-                                ).filter(Items.owner==int(ownerId)
-                                ).first()
+    editedItem = (session.query(Items.owner,
+                                Items.itemId,
+                                Items.itemName,
+                                Items.itemDescription,
+                                ItemPhotos.photoUrl,
+                                Inventory.itemPrice,
+                                ItemCategories.categoryId,
+                                Inventory.inventoryCount).
+                  outerjoin(ItemCategories, Items.itemId ==
+                            ItemCategories.itemId).
+                  outerjoin(ItemPhotos, Items.itemId == ItemPhotos.itemId).
+                  outerjoin(Inventory, Items.itemId == Inventory.itemId).
+                  filter(Items.itemId == int(itemId)).
+                  filter(Items.owner == int(ownerId)).
+                  first())
     if not editedItem or editedItem.owner != ownerId:
         return redirect(url_for('showMyItems'))
     # print(editedItem)
@@ -634,38 +690,42 @@ def editItem(itemId):
         # Save edits to the items table
         if request.form['item_name']:
             print(request.form['item_name'])
-            itemToEdit = session.query(Items
-                                        ).filter(Items.itemId==int(itemId)
-                                        ).filter(Items.owner==int(login_session['user_id'])
-                                        ).all()
+            itemToEdit = (session.query(Items).
+                          filter(Items.itemId == int(itemId)).
+                          filter(Items.owner == int(ownerId)).
+                          all())
             for i in itemToEdit:
                 i.itemName = request.form['item_name']
                 i.itemDescription = request.form['item_description']
             session.commit()
             # Save edits to the itemCategory table
-            itemCategory = session.query(ItemCategories
-                                        ).filter(ItemCategories.itemId==int(itemId)
-                                        ).all()
+            itemCategory = (session.query(ItemCategories).
+                            filter(ItemCategories.itemId == int(itemId)).
+                            all())
             for i in itemCategory:
                 i.categoryId = request.form['item_category']
             session.commit()
             # Save edits to the inventory (price and count) table
-            itemInventory = session.query(Inventory
-                                        ).filter(Inventory.itemId==int(itemId)
-                                        ).all()
+            itemInventory = (session.query(Inventory).
+                             filter(Inventory.itemId == int(itemId)).
+                             all())
             for i in itemInventory:
                 i.inventoryCount = request.form['item_inventory']
                 i.itemPrice = request.form['item_price']
                 i.lastUpdated = currentDateTime
             # Commit the edits
             session.commit()
-            """Flash message that the item was successfully added. Add BOOTSTRAP css classes as the
-            message category."""
-            flash('Item was successfully edited (%s)' % editedItem.itemName, 'badge badge-success')
+            """Flash message that the item was successfully added. Add
+            BOOTSTRAP css classes as the message category."""
+            flash('Item was successfully edited (%s)' % editedItem.itemName,
+                  'badge badge-success')
             return redirect(url_for('showMyItems'))
     else:
-        return render_template('editItem_LoggedIn.html', categories=categories, item=editedItem
-                                , logged_in=logged_in)
+        return render_template('editItem_LoggedIn.html',
+                               categories=categories,
+                               item=editedItem,
+                               logged_in=logged_in)
+
 
 # Edit a restaurant
 @app.route('/catalog/items/<int:itemId>/delete/', methods=['POST'])
@@ -676,29 +736,30 @@ def deleteItem(itemId):
         logged_in = True
     ownerId = login_session["user_id"]
     # Query the appropriate tables for the specified item to delete
-    deleteItem = session.query(Items.owner
-                                , Items.itemId
-                                , Items.itemName
-                                , Items.itemDescription
-                                , ItemPhotos.photoUrl
-                                , Inventory.itemPrice
-                                , ItemCategories.categoryId
-                                , Inventory.inventoryCount
-                                ).outerjoin(ItemCategories
-                                ).outerjoin(ItemPhotos
-                                ).outerjoin(Inventory
-                                ).filter(Items.itemId==int(itemId)
-                                ).filter(Items.owner==int(ownerId)
-                                ).first()
+    deleteItem = (session.query(Items.owner,
+                                Items.itemId,
+                                Items.itemName,
+                                Items.itemDescription,
+                                ItemPhotos.photoUrl,
+                                Inventory.itemPrice,
+                                ItemCategories.categoryId,
+                                Inventory.inventoryCount).
+                  outerjoin(ItemCategories).
+                  outerjoin(ItemPhotos).
+                  outerjoin(Inventory).
+                  filter(Items.itemId == int(itemId)).
+                  filter(Items.owner == int(ownerId)).
+                  first())
     # If the user is not the owner of the restaurant record, redirect to home
     if deleteItem.owner != login_session.get('user_id'):
         return redirect(url_for('showMyItems'))
     if request.method == 'POST':
-        session.query(Items).filter(Items.itemId==int(itemId)).delete()
+        session.query(Items).filter(Items.itemId == int(itemId)).delete()
         session.commit()
-        """Flash message that the item was successfully added. Add BOOTSTRAP css classes as the
-        message category."""
-        flash('Item was successfully deleted (%s)' % deleteItem.itemName, 'badge badge-success')
+        """Flash message that the item was successfully added. Add BOOTSTRAP
+        css classes as the message category."""
+        flash('Item was successfully deleted (%s)' % deleteItem.itemName,
+              'badge badge-success')
         return redirect(url_for('showMyItems'))
     else:
         return redirect(url_for('showMyItems'))
@@ -707,4 +768,4 @@ def deleteItem(itemId):
 if __name__ == '__main__':
     app.secret_key = 'dja90d8fa0sdnfasidpfaksjfd9s8ad'
     app.debug = True
-    app.run(host = '0.0.0.0', port = 8000) # , ssl_context=('cert.pem', 'key.pem')
+    app.run(host='0.0.0.0', port=8000)  # , ssl_context=('cert.pem', 'key.pem')
